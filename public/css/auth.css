@@ -1,0 +1,16 @@
+#slitherbot-auth-main {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+}
+
+#slitherbot-auth-main button {
+    background-color: #8956FB;
+    border: none;
+    border-radius: 8px;
+    padding: 20px 40px;
+    cursor: pointer;
+    font-size: large;
+}

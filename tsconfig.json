@@ -1,0 +1,15 @@
+{
+    "compilerOptions": {
+        "strict": true,
+        "outDir": "./built",
+        "allowJs": true,
+        "target": "es2022",
+        "module": "es2022",
+        "noEmitOnError": true,
+        "noImplicitAny": true,
+        "moduleResolution": "node",
+        "allowSyntheticDefaultImports": true,
+        "skipLibCheck": true
+    },
+    "include": ["./src/**/*"]
+}

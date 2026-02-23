@@ -1,0 +1,55 @@
+{
+  "name": "slitherbot",
+  "version": "0.0.0",
+  "description": "slitherbot",
+  "main": "app.js",
+  "author": {
+    "name": ""
+  },
+  "type": "module",
+  "engines": {
+    "node": ">=25.2.1"
+  },
+  "dependencies": {
+    "@twurple/api": "^7.1.0",
+    "@twurple/api-call": "^7.1.0",
+    "@twurple/auth": "^7.1.0",
+    "@twurple/eventsub-http": "^7.1.0",
+    "@twurple/pubsub": "^7.1.0",
+    "@types/express": "^5.0.6",
+    "@types/express-serve-static-core": "^5.1.1",
+    "@types/mysql": "^2.15.27",
+    "@types/node": "^25.1.0",
+    "@types/node-fetch": "^2.6.13",
+    "@types/qs": "^6.14.0",
+    "@types/range-parser": "^1.2.7",
+    "@types/send": "^1.2.1",
+    "@types/ws": "^8.18.1",
+    "axios": "^1.7.7",
+    "body-parser": "^1.20.3",
+    "dotenv": "^17.2.3",
+    "ejs": "^3.0.2",
+    "electron": "^40.1.0",
+    "express": "^4.19.2",
+    "kysely": "^0.28.11",
+    "minimatch": "^10.2.2",
+    "mysql": "^2.18.1",
+    "mysql2": "^3.17.1",
+    "obs-websocket-js": "^5.0.5",
+    "path": "^0.12.7",
+    "tmi.js": "^1.8.5",
+    "twitch": "^4.6.7",
+    "twitch-pubsub-client": "^4.6.7",
+    "typescript": "^5.9.3",
+    "zod": "^4.3.6"
+  },
+  "overrides": {
+    "minimatch": "^10.2.2"
+  },
+  "scripts": {
+    "start": "export NVM_DIR=\"$HOME/.nvm\"; [ -s \"$NVM_DIR/nvm.sh\" ] && . \"$NVM_DIR/nvm.sh\"; nvm run ./built/app.js",
+    "tsc": "tsc; rm -r built/views; cp src/views built -r",
+    "postinstall": "npm run tsc",
+    "dev": "ts-node-dev --respawn --pretty --transpile-only src/app.ts"
+  }
+}
