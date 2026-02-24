@@ -3,6 +3,11 @@ import bodyParser from 'body-parser'
 import { WebSocket } from 'ws'
 import { twitch as twitchConfig } from '../config.js' // Needed in auth
 
+import { verify_event_message } from '../services/twitchverify.js'
+
+const rawParser = bodyParser.raw({
+	type: 'application/json'
+})
 const jsonParser = bodyParser.json()
 const urlencodedParser = bodyParser.urlencoded({ extended: false})
 const router = express.Router()
@@ -43,10 +48,24 @@ twitchWS.onopen = function open() {
  * 
  * This method must call the appropriate channel point reward
  **/
-router.post('/event/channel.channel_points_custom_reward_redemption.add.:channelid', jsonParser, (req, res) => {
+router.post('/event/channel.channel_points_custom_reward_redemption.add.:channelid', rawParser, (req, res) => {
+	if(!verify_event_message(req)) {
+		console.log(`Could not verify that event message came from Twitch`)
+		 res.writeHead(403, {
+		 	'Content-Type': 'application/json'
+		 }).end()
+	}
 
+	try {
+		// try parsing the body as JSON
+		req.body = JSON.parse(req.body)
+	} catch(e) {
+		console.log('Error parsing req.body as JSON: ', e)
+	}
+	
 	//TODO: Remove if statement when multiple channels are supported. For now, just make sure the post is for the correct channel before doing anything with it.
 	if(req.params.channelid === "123657070") {
+		
 		let type: string = 'alert'
 		let imageFile: string = 'RareCharTP-Trim.gif'
 		let audioFile: string = 'DiscordMute.mp3'
@@ -59,16 +78,14 @@ router.post('/event/channel.channel_points_custom_reward_redemption.add.:channel
 			res.send(req.body.challenge)
 
 		}
+
 		else if(req.body.subscription.status === "enabled") {
+
 			console.log(`Reward redeemed. Event object: ${JSON.stringify(req.body.event)}`)
 
 			// EventSub subscription is already registered. Proceed to handle the redemption.
 			const wsmsgobj = { type: type, imageFile: imageFile, audioFile: audioFile, alertText: alertText, duration: duration };
 			twitchWS.send(JSON.stringify(wsmsgobj)) // send the reward redemption info to the WebSocket server
-
-			// placeholder reward code
-			let rewardTitle = req.body.event.reward.title ?? "unknown reward";
-			//console.log(rewardTitle + " redeemed")
 
 			// respond with 200 OK
 			res.writeHead(200, {
@@ -76,6 +93,7 @@ router.post('/event/channel.channel_points_custom_reward_redemption.add.:channel
 			}).end()
 			
 		}
+
 		else console.log(`Status ${req.body.subscription.status} encountered for subscription id ${req.body.subscription.id}`)
 
 	}
