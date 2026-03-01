@@ -52,7 +52,7 @@
     "postinstall": "npm run tsc",
     "start": "export NVM_DIR=\"$HOME/.nvm\"; [ -s \"$NVM_DIR/nvm.sh\" ] && . \"$NVM_DIR/nvm.sh\"; nvm run ./built/app.js",
     "test": "vitest",
-    "tsc": "tsc; npx kysely-codegen; rm -r built/views; cp src/views built -r"
+    "tsc": "tsc; rm -r built/views; cp src/views built -r"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
