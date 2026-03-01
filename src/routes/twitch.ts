@@ -10,9 +10,7 @@ const AUTH_REDIRECT_URI = `https://${sslConfig.hostName}/twitch/auth/code`
 const AUTH_STATES: string[] = []
 const SLITHER_SCOPES = ['channel:read:redemptions', 'channel:manage:redemptions']
 
-const rawParser = bodyParser.raw({
-	type: 'application/json'
-})
+const rawParser = bodyParser.raw({ type: 'application/json' })
 const jsonParser = bodyParser.json()
 const router = express.Router()
 
@@ -137,6 +135,7 @@ router.get('/alerts', (req, res) => {
 
 })
 
+// TODO: Is this how we want to hit the alerts endpoint? Not yet a functional route.
 router.get('/alerts/:token', (req, res) => {
 
 	console.log(`alerts hit for channel ${req.params.token}`)
@@ -144,18 +143,18 @@ router.get('/alerts/:token', (req, res) => {
 
 })
 
+// TODO: Validate that the requested file has been uploaded by the same user who is making the request. Requests to 
+// this endpoint should only come from the alerts.ejs view after the server sends it a secure message over the websocket.
 router.get('/media/:filename', (req, res) => {
 
 	// Allow only a-z, A-Z, 0-9, and the literals - and _ in file names. Files supported are only:
-	// { .gif, .png, .jpg, .mp3, .wav }
-	const ALLOWED_MEDIA_STRICT = /^[\w\-\_]+\.(?i:gif|png|jpg|mp3|wav)$/
+	// { .gif, .png, .jpg, .mp3, .wav, .ico }
+	const ALLOWED_MEDIA_STRICT = /^[\w\-\_]+\.(?i:gif|png|jpg|mp3|wav|ico)$/
 	const fileName: string = req.params.filename
 	if(!ALLOWED_MEDIA_STRICT.test(fileName)) {
 		return res.status(404).end()
 	}
 
-	// TODO: Validate that the file has been uploaded by the same user who is making the request. Requests to this endpoint should
-	// only come from the alerts.ejs view after the server sends it a secure message over the websocket.
 	res.status(200).sendFile(`/opt/slitherbot/public/media/${fileName}`, (err) => {
 		if(err) {
 			console.error(`Error sending media file ${fileName} in response to request at /media/:filename endpoint. Error: ${err}`)
@@ -165,6 +164,11 @@ router.get('/media/:filename', (req, res) => {
 
 })
 
+// TODO: Complete this route. We currently do not have a systematic way to obtain User Access Tokens.
+// Intermediate endpoint for users wanting to authenticate slitherbot to access their twitch account resources.
+// When the user logs into Twitch and authorizes slitherbot to access their Twitch account resources, Twitch will
+// redirect the user here. We should use the fetch() API to send the authorization code to Twitch's OAuth system
+// after which we will receive the User Access Token at the redirect URI specified.
 router.get('/auth/code', (req, res) => {
 	const { code: authCode, scope, error, error_description, state } = req.query
 	console.log(`Received Twitch auth redirect with query params: code=${authCode}, scope=${scope}, error=${error}, error_description=${error_description}, state=${state}`)
@@ -200,9 +204,10 @@ router.get('/auth/code', (req, res) => {
 	res.sendStatus(200)
 })
 
+// TODO: Integrate this better into the frontend. We have functionality, let's create a better application around it.
 // Auth page for slitherbot users. Currently just a button labeled "Authorize Me!" that redirects them to a Twitch login.
 // Expect the twitchAuthParams object to be sent to Twitch's OAuth system which will then send a code to our redirect_uri
-// if user's login to Twitch is successful
+// if user's login to Twitch is successful.
 router.get('/auth', (req, res) => {
 	const STATE = crypto.randomBytes(32).toString('hex')
 	AUTH_STATES.push(STATE)
@@ -234,7 +239,8 @@ router.get('/auth/token', (req, res) => {
 	
 })
 
-// TODO: Implement endpoints for eventsub testing. These last two endpoints exist for now to see how the CLI behaves when sending test events.
+// TODO: Implement test functions for eventsub testing and use the /twitch/event endpoint to filter out and handle test messages.
+// These last two endpoints exist for now to see how the CLI behaves when sending test events but it is extremely bare-bones.
 router.post('/event', (req, res) => {
 	console.log(`/event endpoint hit on /twitch route with body: ${req.body}`)
 	res.sendStatus(200)
@@ -246,4 +252,3 @@ router.post('/', (req, res) => {
 })
 
 export default { router };
-export { router };
