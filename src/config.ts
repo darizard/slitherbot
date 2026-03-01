@@ -19,7 +19,8 @@ const mysql = {
     port: Number(process.env.PORT),
     user: String(process.env.USER),
     password: String(process.env.PASSWORD),
-    database: String(process.env.DATABASE)
+    database: String(process.env.DATABASE),
+    databaseUrl: String(process.env.DATABASE_URL)
 }
 const jwt = {
     secret: String(process.env.JWT_SECRET)
