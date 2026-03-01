@@ -1,3 +1,13 @@
+<% const AUTH_BASEURL = `https://id.twitch.tv/oauth2/authorize`
+
+const AUTH_PARAMS = `${twitchAuthParams.idlabel}=${twitchAuthParams.idvalue}&` +
+                      `${twitchAuthParams.redirlabel}=${twitchAuthParams.redirvalue}&` +
+                      `${twitchAuthParams.restypelabel}=${twitchAuthParams.restypevalue}&` +
+                      `${twitchAuthParams.scopelabel}=${twitchAuthParams.scopevalue}&` +
+                      `${twitchAuthParams.statelabel}=${twitchAuthParams.statevalue}`
+
+const AUTH_URL = `${AUTH_BASEURL}?${AUTH_PARAMS}` %>
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -11,14 +21,8 @@
 </head>
 <body>
   <div id="slitherbot-auth-main">
-    <button id="authorize" onclick="authorize_with_twitch()">Authorize Me!</button>
+    <a class="link-button" id="authorize" href="<%= AUTH_URL %>">Authorize Me!</a>
   </div>
 </body>
-
-<script>
-  function authorize_with_twitch() {
-    // Do thing
-  }
-</script>
 
 </html>

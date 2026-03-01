@@ -7,3 +7,12 @@ body {
 button {
     color: #f5f5f5;
 }
+
+.link-button {
+    background-color: #8956FB;
+    border: none;
+    border-radius: 8px;
+    padding: 20px 40px;
+    cursor: pointer;
+    font-size: large;
+}

@@ -1,6 +1,6 @@
 import dotenv from 'dotenv'
 
-export { twitch, ssl, mysql }
+export { twitch, ssl, mysql, jwt }
 
 // environment setup
 dotenv.config()
@@ -20,4 +20,7 @@ const mysql = {
     user: String(process.env.USER),
     password: String(process.env.PASSWORD),
     database: String(process.env.DATABASE)
+}
+const jwt = {
+    secret: String(process.env.JWT_SECRET)
 }

@@ -56,8 +56,8 @@ export async function connect() {
 	// subscription management in the future, but I will need to determine the details once database retrieval is working.
 	let subs = await apiclient.eventSub.getSubscriptions()
 	for(let sub of subs.data) {
-		if(sub.status !== 'enabled') sub.unsubscribe()
-		//await sub.unsubscribe() // Unsubscribe from all existing EventSub subscriptions as a testing measure.
+		//if(sub.status !== 'enabled') sub.unsubscribe()
+		await sub.unsubscribe() // Unsubscribe from all existing EventSub subscriptions as a testing measure.
 	}
 
 	const middleware = new EventSubMiddleware({

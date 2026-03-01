@@ -20,6 +20,8 @@ import type { Server as httpsServer } from 'https'
 import { WebSocketServer, WebSocket } from 'ws'
 import url from 'url'
 import slitherws from './slitherws.js' // Import the WebSocket connection and connection management functions defined in slitherws.js
+import * as jose from 'jose'
+import { jwt as jwtConfig } from '../config.js'
 
 export default { init }
 
@@ -49,10 +51,9 @@ export function init(server: httpsServer) {
 
         // Expect stringified JSON as incoming messages
         ws.on('message', function incoming(messageRaw) {
-
-            // Extract JSON and validate that it is a properly formed message of a known type
             let messageJSON: slitherws.WSMessage
 
+            // Just make sure it's JSON
             try {
                 messageJSON = JSON.parse(messageRaw.toString())
             } catch(e) {
@@ -61,7 +62,7 @@ export function init(server: httpsServer) {
                 return
             }
             
-            // Forward to clients based on message type. "satisfies never" syntax used for exhaustive type checking on message types
+            // Forward to clients based on message type. "satisfies never" syntax used for exhaustive handling of message types
             switch (messageJSON.type) {
                 case "alert":
                     if(!slitherws.isAlertMessage(messageJSON as slitherws.AlertMessage)) {
@@ -72,6 +73,9 @@ export function init(server: httpsServer) {
                         // Only send message on to the client if the requested media exists on the server.
                         if(value.type === 'alerts' && mediaExist(messageJSON as slitherws.AlertMessage)) {
                             key.send(JSON.stringify(messageJSON))
+                        }
+                        else {
+                            console.log(`alert message failed: ${JSON.stringify(messageJSON)}`)
                         }
                     break
                 case "ping":
@@ -109,13 +113,15 @@ export function init(server: httpsServer) {
 // Returns `true` otherwise.
 function mediaExist(message: slitherws.AlertMessage): boolean {
 
-    let pathToSound = `/opt/slitherbot/public/sounds/${message.audioFile}`
-    let pathToImage = `/opt/slitherbot/public/images/${message.imageFile}`
-    if ((message.audioFile && !fs.existsSync(pathToSound))
-        || message.imageFile && !fs.existsSync(pathToImage)) 
-    {
-        return false;
-    }
+    const MEDIA_PATH = `/opt/slitherbot/public/media/`
+    
+    const SOUND_PATH = `${MEDIA_PATH}`+`${message.audioFile}`
+    const IMAGE_PATH = `${MEDIA_PATH}`+`${message.imageFile}`
+
+    // Allow filenames to be falsy (empty string, undefined, null). If they are not, make sure they exist on the server before allowing the message to be sent to clients.
+    if(message.audioFile && !fs.existsSync(SOUND_PATH)) return false
+    if(message.imageFile && !fs.existsSync(IMAGE_PATH)) return false
+
     return true;
 
 }

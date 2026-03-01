@@ -22,10 +22,11 @@ obj/
 # Image and sound files -- Implement your own!
 public/images/*
 public/sounds/*
-public/
+public/*
 
-# Include CSS!
-!public/css/*
+# Include JS and CSS!
+!public/css
+!public/js
 
 ### Node.js Template Ignores ###
 
