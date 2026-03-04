@@ -8,8 +8,8 @@
         "noEmitOnError": true,
         "noImplicitAny": true,
         "moduleResolution": "node",
-        "allowSyntheticDefaultImports": true,
-        "skipLibCheck": true
+        "skipLibCheck": true,
+        "esModuleInterop": true
     },
     "include": ["./src/**/*"]
 }

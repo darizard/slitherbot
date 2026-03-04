@@ -50,14 +50,16 @@
   "scripts": {
     "dev": "ts-node-dev --respawn --pretty --transpile-only src/app.ts",
     "postinstall": "npm run tsc",
-    "start": "export NVM_DIR=\"$HOME/.nvm\"; [ -s \"$NVM_DIR/nvm.sh\" ] && . \"$NVM_DIR/nvm.sh\"; nvm run ./built/app.js",
+    "start": "export NVM_DIR=\"$HOME/.nvm\"; [ -s \"$NVM_DIR/nvm.sh\" ] && . \"$NVM_DIR/nvm.sh\"; nvm run ./built/server.js",
     "test": "vitest",
     "tsc": "tsc; npx kysely-codegen; rm -r built/views; cp src/views built -r"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@types/supertest": "^7.2.0",
     "globals": "^17.3.0",
     "kysely-codegen": "^0.20.0",
+    "supertest": "^7.2.2",
     "typescript-eslint": "^8.56.1",
     "vitest": "^4.0.18"
   }

@@ -1,12 +1,16 @@
 import express from 'express'
 import bodyParser from 'body-parser'
 import crypto from 'crypto'
+
 import { WebSocket } from 'ws'
+
 import { ssl as sslConfig, twitch as twitchConfig, jwt as jwtConfig } from '../config.js' // Needed in auth
+import type { TwitchAuthCode, TwitchAuthUserToken, TwitchAuthError, TwitchAuthCodeRequest, TwitchAuthUserTokenRequest } from '../types/authtypes.js'
+import { isTwitchAuthCode, isTwitchAuthUserToken, isTwitchAuthError, isTwitchAuthCodeRequest, isTwitchAuthUserTokenRequest } from '../types/authtypes.js'
 
 import { verify_event_message } from '../services/twitchverify.js'
 
-const AUTH_REDIRECT_URI = `https://${sslConfig.hostName}/twitch/auth/code`
+const AUTH_REDIRECT_URI = new URL(`https://${sslConfig.hostName}/twitch/oauth`)
 const AUTH_STATES: string[] = []
 const SLITHER_SCOPES = ['channel:read:redemptions', 'channel:manage:redemptions']
 
@@ -14,7 +18,7 @@ const rawParser = bodyParser.raw({ type: 'application/json' })
 const jsonParser = bodyParser.json()
 const router = express.Router()
 
-//TODO: Move WebSocket client implementation to its own service file.
+//TODO: Move WebSocket client implementation to its own service file and have the various routes make WebSocket connections when needed.
 let twitchWS = new WebSocket(`wss://${sslConfig.hostName}/twitch?clientType=controller`);
 twitchWS.onopen = function open() {
 
@@ -39,6 +43,12 @@ twitchWS.onopen = function open() {
 	console.log("Twitch controller WebSocket connected to local WebSocket server.")
 
 }
+
+// TODO: Implement /event endpoint to process twitch event messages in a more general manner than the endpoint below
+router.post('/event', (req, res) => {
+	console.log(`/event endpoint hit on /twitch route with body: ${req.body}`)
+	res.sendStatus(200)
+})
 
 /**
  * POST request received from Twitch when either:
@@ -87,6 +97,7 @@ router.post('/event/channel.channel_points_custom_reward_redemption.add.:channel
 		   .status(200)
 		   .send(req.body.challenge)
 
+		console.log('Responded to Twitch EventSub verification challenge.')
 		// TODO: Add event subscriptions to the backend DB schema
 		// TODO: store the subscription information in our database
 
@@ -164,51 +175,71 @@ router.get('/media/:filename', (req, res) => {
 
 })
 
-// TODO: Complete this route. We currently do not have a systematic way to obtain User Access Tokens.
-// Intermediate endpoint for users wanting to authenticate slitherbot to access their twitch account resources.
-// When the user logs into Twitch and authorizes slitherbot to access their Twitch account resources, Twitch will
-// redirect the user here. We should use the fetch() API to send the authorization code to Twitch's OAuth system
-// after which we will receive the User Access Token at the redirect URI specified.
-router.get('/auth/code', (req, res) => {
-	const { code: authCode, scope, error, error_description, state } = req.query
-	console.log(`Received Twitch auth redirect with query params: code=${authCode}, scope=${scope}, error=${error}, error_description=${error_description}, state=${state}`)
-	const stateIndex = AUTH_STATES.indexOf(state as string);
+// OAuth endpoint. When the user logs into Twitch and authorizes slitherbot to access their Twitch account resources
+// pursuant to using the link on auth.ejs (served by /twitch/index), Twitch servers will hit /twitch/oauth with an auth code.
+// We should use the fetch() API to send this auth code to Twitch's OAuth system after which we will receive the
+// User Access Token in the body of a response. Insert or update the token into the database to allow the user
+// to use this app's features. Then we rediret the user to SlitherBot's index page.
+router.get('/oauth', async (req, res) => {
 
-	if(stateIndex < 0) {
-		console.error(`Received GET request at /auth/code with invalid state parameter: ${state}`)
-		return res.status(401).end()
+	if(isTwitchAuthError(req.query as TwitchAuthError)) {
+		console.log(`OAuth Error received from Twitch: ${JSON.stringify(req.query)}`)
+		return res.sendStatus(204)
+	}
+
+	if(!isTwitchAuthCode(req.query as TwitchAuthCode)) {
+		console.log(`Received a call to GET /twitch/oauth that was neither an error nor an auth code. Query: ${JSON.stringify(req.query)}`)
+		return res.sendStatus(400)
 	}
 
 	// Process a request with any given state only once
+	const stateIndex = AUTH_STATES.indexOf(req.query.state as string);
+	if(stateIndex === -1) {
+		// TODO: Treat this error as a security risk and elevate the logging
+		console.log(`Received an auth code with an invalid or already used state value: ${req.query.state}. Rejecting request.`)
+		return res.sendStatus(400)
+	}
 	AUTH_STATES.splice(stateIndex, 1)
-
-	if(authCode) {
-		// TODO: We have received an authorization code. Use the fetch 
-		// API to GET https://id.twitch.tv/oauth2/token using following query params
-		// **********************************************
-		// clientid = slitherbot_client_id
-		// client_secret = slitherbot_client_secret
-		// code = code
-		// grant_type = "authorization_code"
-		// redirect_uri = `https://${sslConfig.hostName}/auth/token`
-		// **********************************************
-		
-		// Then, we will receive an access token and refresh token at the redirect uri provided.
-	}
-	else if(error) {
-		// TODO: We have received an error back from Twitch on the authorization code retrieval. According to Twitch
-		// docs, this occurs when a user successfully logs in but does not authorize the requested access to
-		// slitherbot. Send the user to the auth page again? Create a page for this occurrence?
+	
+	// We have received an Authorization Code from Twitch that we can use to obtain a User Access Token for a user wanting to use
+	// SlitherBot. We can send our response to Twitch. POST the auth code to https://id.twitch.tv/oauth2/token with query params:
+	// { client_id, client_secret, code, grant_type, redirect_uri }
+	const tokenRequest: TwitchAuthUserTokenRequest = {
+		client_id: `${twitchConfig.clientId}`,
+		client_secret: `${twitchConfig.clientSecret}`,
+		code: `${req.query.code}`,
+		grant_type: 'authorization_code',
+		redirect_uri: `https://${sslConfig.hostName}/twitch/oauth`
 	}
 
-	res.sendStatus(200)
+	const twitchTokenResponse = await fetch(`https://id.twitch.tv/oauth2/token`, {
+		method: 'POST',
+		body: new URLSearchParams(tokenRequest)
+	})
+
+	// TODO: Elevate this logging to urgent priority as this may indicate a change in Twitch's OAuth system that breaks our integration with it.
+	const twitchTokenData = await twitchTokenResponse.json() as TwitchAuthUserToken
+	if(!isTwitchAuthUserToken(twitchTokenData)) {
+		console.log(`SlitherBot has hit Twitch's OAuth system with an authorization code but received an unexpected object in the ` +
+					`response. Token type indicated in the response should be 'bearer': ${(twitchTokenData as any).token_type}\n` +
+					`Investigate on urgent priority as this may indicate a change in Twitch's OAuth system.`)
+	}
+
+	// Everything seems in order. Store the token in our database and redirect the user. This also implicitly sends a 301 response to Twitch /thumbup.
+	// TODO: Store the token in the database. Do this after implementing token validation in accordance with Twitch's requirements. See docs.
+	// TODO: Don't pass the token as a query parameter. Set up better logic here. For now, just indicate the JavaScript type of the received token.
+	const tokenType = typeof twitchTokenData.access_token
+	res.redirect(`/twitch/index?tokenType=${tokenType}`)
+	
+	return
+
 })
 
-// TODO: Integrate this better into the frontend. We have functionality, let's create a better application around it.
-// Auth page for slitherbot users. Currently just a button labeled "Authorize Me!" that redirects them to a Twitch login.
-// Expect the twitchAuthParams object to be sent to Twitch's OAuth system which will then send a code to our redirect_uri
-// if user's login to Twitch is successful.
+
+// User has clicked Authorize Me! on /twitch/auth and now we need to create a State value
+// and redirect the user to Twitch's OAuth system
 router.get('/auth', (req, res) => {
+
 	const STATE = crypto.randomBytes(32).toString('hex')
 	AUTH_STATES.push(STATE)
 
@@ -216,39 +247,28 @@ router.get('/auth', (req, res) => {
 	for(let scope of SLITHER_SCOPES) scopes += `${encodeURIComponent(scope)}+`
 	scopes = scopes.substring(0, scopes.length-1)
 
-	res.render('twitch/auth', {
-		twitchAuthParams: {
-			idlabel: "client_id",
-			idvalue: twitchConfig.clientId,
-			redirlabel: "redirect_uri",
-			redirvalue: AUTH_REDIRECT_URI,
-			restypelabel: "response_type",
-			restypevalue: "code",
-			scopelabel: "scope",
-			scopevalue: scopes,
-			statelabel: "state",
-			statevalue: STATE
-		}
-	})
+	let twitchAuthParams = {
+		clientid: twitchConfig.clientId,
+		redirect_uri: AUTH_REDIRECT_URI,
+		response_type: "code",
+		scope: scopes,
+		state: STATE
+	}
+
+	res.redirect(`https://id.twitch.tv/oauth2/authorize?client_id=${twitchAuthParams.clientid}&redirect_uri=${twitchAuthParams.redirect_uri}&response_type=${twitchAuthParams.response_type}&scope=${twitchAuthParams.scope}&state=${twitchAuthParams.state}`)
 
 })
 
-//TODO: Implement authentication functionality to manage user access tokens and scopes for Twitch API and EventSub access.
-// This is the redirect URL for twitch to send OAuth requests
-router.get('/auth/token', (req, res) => {
-	
+// TODO: Integrate this better into the frontend. We have functionality, let's create a better application around it.
+// Auth page for slitherbot users. Currently just a button labeled "Authorize Me!" that redirects them to a Twitch login.
+router.get('/index', (req, res) => {
+
+	if(!req.query.token) return res.render('twitch/auth')
+
+	res.render('twitch/index', { token: req.query.token })
+
 })
 
 // TODO: Implement test functions for eventsub testing and use the /twitch/event endpoint to filter out and handle test messages.
-// These last two endpoints exist for now to see how the CLI behaves when sending test events but it is extremely bare-bones.
-router.post('/event', (req, res) => {
-	console.log(`/event endpoint hit on /twitch route with body: ${req.body}`)
-	res.sendStatus(200)
-})
 
-router.post('/', (req, res) => {
-	console.log(`Default endpoint hit on /twitch route with body: ${req.body}`)
-	res.sendStatus(200)
-})
-
-export default { router };
+export default { router }

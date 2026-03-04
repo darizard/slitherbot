@@ -1,6 +1,6 @@
 import dotenv from 'dotenv'
 
-export { twitch, ssl, mysql, jwt }
+export { twitch, ssl, mysql, jwt, ws }
 
 // environment setup
 dotenv.config()
@@ -24,4 +24,7 @@ const mysql = {
 }
 const jwt = {
     secret: String(process.env.JWT_SECRET)
+}
+const ws = {
+    controllerSecret: String(process.env.CONTROLLER_WEBSOCKET_SECRET)
 }
