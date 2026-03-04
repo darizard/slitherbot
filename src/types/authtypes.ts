@@ -1,3 +1,16 @@
+export type TwitchAuthTokenValidationResponse = {
+    client_id: string
+    login: string
+    user_id: string
+    expires_in: number
+    scopes: string[]
+}
+
+export type TwitchAuthTokenValidationErrorResponse = {
+    status: 401,
+    message: string
+}
+
 export type TwitchAuthCodeRequest = {
     client_id: string
     redirect_uri: string

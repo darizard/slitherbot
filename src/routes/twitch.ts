@@ -272,3 +272,4 @@ router.get('/index', (req, res) => {
 // TODO: Implement test functions for eventsub testing and use the /twitch/event endpoint to filter out and handle test messages.
 
 export default { router }
+export { router }

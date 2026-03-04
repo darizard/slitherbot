@@ -9,9 +9,7 @@ import { db } from "../db/database.js"
 import { twitch as twitchBotConfig } from "../config.js"
 import { jsonArrayFrom } from 'kysely/helpers/mysql'
 
-// TODO: Investigate middleware and Apache config conflict with respect to callback functions not firing on middleware events.
-// The middlware object is defined in ./eventsubclient.ts
-
+// TODO: Set up token validation that the server should run hourly for all Twitch OAuth tokens.
 /*
  * Returns a RefreshingAuthProvider that contains token and scope information for all users connecting to the service.
  * This object also listens for events related to token refreshing. It is currently unclear whether these callbacks will
@@ -62,8 +60,7 @@ export async function createAuthProvider() {
     // TODO: Test what the value of activeUser.scopes looks like when only one scope is stored for the token. If it stores it as a string instead of an array then we'll need to account for that.
     const activeUsers = await getActiveTokenUsers()
     for(let activeUser of activeUsers) {
-        console.log(`DB: After getting Active Token Users, parsed scopes for user ${activeUser.channel_id} as ${JSON.stringify(activeUser.scopes)}`)
-
+        
         const userToAdd = { accessToken: activeUser.access_token, 
                                 scope: activeUser.scopes as string[],
                                 refreshToken: activeUser.refresh_token,

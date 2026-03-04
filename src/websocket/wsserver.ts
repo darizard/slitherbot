@@ -69,14 +69,15 @@ export function init(server: httpsServer) {
                         console.error(`Malformed alert message received by WebSocket: ${messageJSON}`)
                         break
                     }
-                    for(const [key, value] of connections)
-                        // Only send message on to the client if the requested media exists on the server.
-                        if(value.type === 'alerts' && mediaExist(messageJSON as slitherws.AlertMessage)) {
-                            key.send(JSON.stringify(messageJSON))
-                        }
-                        else {
-                            console.log(`alert message failed: ${JSON.stringify(messageJSON)}`)
-                        }
+                    // Only send message on to clients if the requested media exists on the server.
+                    if(!mediaExist(messageJSON as slitherws.AlertMessage)) {
+                        console.log(`Alert message requested media that does not exist on the server: ${JSON.stringify(messageJSON)}`)
+                        break
+                    }
+                    for(const [key, value] of connections) {
+                        // Only send alert messages to clients of type "alerts"
+                        if(value.type === 'alerts') key.send(JSON.stringify(messageJSON))
+                    }
                     break
                 case "ping":
                     if(!slitherws.isPingMessage(messageJSON as slitherws.PingMessage)) {

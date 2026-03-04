@@ -6,6 +6,7 @@ import fs from 'fs'
 import eventsubclient from './services/eventsubclient.js'
 import wsserver from './websocket/wsserver.js'
 import { app } from './app.js'
+import { router as twitchRouter } from './routes/twitch.js'
 
 // credentials (need SQL and SSL here)
 import { ssl as sslConfig } from './config.js'
@@ -23,9 +24,7 @@ const httpServer = https.createServer(options, app)
 wsserver.init(httpServer)
 
 // Listen!
-httpServer.listen(8080, () => {
+httpServer.listen(8080, async () => {
 	console.log('HTTPS Server running on port 8080')
+	await eventsubclient.connect(twitchRouter)
 })
-
-// Connect to Twitch's EventSub service
-eventsubclient.connect()

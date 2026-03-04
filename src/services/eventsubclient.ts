@@ -15,13 +15,14 @@
 // TODO: Investigate middleware and Apache config conflict with respect to callback functions not firing on middleware events.
 // Cross-notated in ./twitchauth.ts
 
+import express from 'express'
+
 // twurple library imports
 import { ApiClient } from '@twurple/api'
 import { EventSubMiddleware } from '@twurple/eventsub-http'
 import type { IRouter } from '@twurple/eventsub-http/node_modules/@types/express-serve-static-core'
 
 // internal app imports
-import twitchroutes from '../routes/twitch.js'
 import { createAuthProvider } from './twitchauth.js'
 import { twitch as twitchBotConfig, ssl as sslConfig } from '../config.js'
 
@@ -39,7 +40,7 @@ export * as default from './eventsubclient.js'
  * 
  * EventSub will only send http requests directly to port 443
  *************************************************************************/
-export async function connect() {
+export async function connect(router: express.Router) {
 
 	// Create a refreshing auth provider and use it to create the api client. This auth provider already contains the tokens
 	// for all Twitch users we want to support, and will handle refreshing them and updating the database with new token data as needed.
@@ -52,6 +53,14 @@ export async function connect() {
 		"authProvider": authProvider
 	})
 
+	const middleware = new EventSubMiddleware({
+		"hostName": sslConfig.hostName,
+		"apiClient": apiclient,
+		"secret": twitchBotConfig.eventsubSecret,
+		"pathPrefix": "/twitch",
+		"usePathPrefixInHandlers": false
+	})
+
 	// TODO: This initial subscription retrieval is fully an artifact of the initial testing phase. We will want to do some
 	// subscription management in the future, but I will need to determine the details once database retrieval is working.
 	let subs = await apiclient.eventSub.getSubscriptions()
@@ -59,24 +68,11 @@ export async function connect() {
 		//if(sub.status !== 'enabled') sub.unsubscribe()
 		await sub.unsubscribe() // Unsubscribe from all existing EventSub subscriptions as a testing measure.
 	}
-
-	const middleware = new EventSubMiddleware({
-		"hostName": sslConfig.hostName,
-		"apiClient": apiclient,
-		"secret": twitchBotConfig.eventsubSecret,
-		"pathPrefix": "/twitch"
-	})
 	
-	// SLIGHT HACK:
-	// An express.js Router or app is meant to fit into the apply method of EventSubMiddleware according to the docs
-	// but Typescript does not detect enough overlap based on definitions alone between it and the IRouter interface from
-	// @twurple/eventsub-http/node_modules/@types/express-serve-static-core. Double asserting to force.
-	const router = (twitchroutes.router as unknown) as IRouter
-	middleware.apply(router)
+	// I want to apply the middleware to my Twitch subrouter.
+	// Double assert to force as the library is designed to take an express router.
+	middleware.apply(router as unknown as IRouter)
 	await middleware.markAsReady()
-
-	// subscription = EventSubSubscription<unknown>
-	// apiSubscription = HelixEventSubSubscription
 
 	// ============="EVENTS" as defined by Twurple's EventSubMiddleware=============
 	middleware.onRevoke(((subscription, status) => {
