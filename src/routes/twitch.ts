@@ -4,8 +4,9 @@ import crypto from 'crypto'
 
 import { WebSocket } from 'ws'
 
+import { upsertUser } from '../db/queries/dbqueries.js'
 import { ssl as sslConfig, twitch as twitchConfig, jwt as jwtConfig } from '../config.js' // Needed in auth
-import type { TwitchAuthCode, TwitchAuthUserToken, TwitchAuthError, TwitchAuthCodeRequest, TwitchAuthUserTokenRequest } from '../types/authtypes.js'
+import type { TwitchAuthCode, TwitchAuthUserToken, TwitchAuthError, TwitchAuthCodeRequest, TwitchAuthUserTokenRequest, TwitchAuthTokenValidationResponse } from '../types/authtypes.js'
 import { isTwitchAuthCode, isTwitchAuthUserToken, isTwitchAuthError, isTwitchAuthCodeRequest, isTwitchAuthUserTokenRequest } from '../types/authtypes.js'
 
 import { verify_event_message } from '../services/twitchverify.js'
@@ -89,15 +90,12 @@ router.post('/event/channel.channel_points_custom_reward_redemption.add.:channel
 
 	if(messageType === 'webhook_callback_verification') {
 
-		console.log(`Verification Challenge received. Request body: ${JSON.stringify(req.body)}`)
-
 		// We need to register the EventSub subscription. First, respond to Twitch's auth challenge
 		res.set('Content-Type', 'text/plain')
 		   .set('Content-Length', `${req.body.challenge.length}`)
 		   .status(200)
 		   .send(req.body.challenge)
 
-		console.log('Responded to Twitch EventSub verification challenge.')
 		// TODO: Add event subscriptions to the backend DB schema
 		// TODO: store the subscription information in our database
 
@@ -223,11 +221,31 @@ router.get('/oauth', async (req, res) => {
 		console.log(`SlitherBot has hit Twitch's OAuth system with an authorization code but received an unexpected object in the ` +
 					`response. Token type indicated in the response should be 'bearer': ${(twitchTokenData as any).token_type}\n` +
 					`Investigate on urgent priority as this may indicate a change in Twitch's OAuth system.`)
+		return
 	}
+	const obtainment_timestamp = Date.now()
 
 	// Everything seems in order. Store the token in our database and redirect the user. This also implicitly sends a 301 response to Twitch /thumbup.
-	// TODO: Store the token in the database. Do this after implementing token validation in accordance with Twitch's requirements. See docs.
-	// TODO: Don't pass the token as a query parameter. Set up better logic here. For now, just indicate the JavaScript type of the received token.
+	await fetch(new Request(`https://id.twitch.tv/oauth2/validate`, { method: 'GET',
+																	  headers: { Authorization: `OAuth ${twitchTokenData.access_token}` } }
+	)).then(async (res) => {
+		const validatedToken = await res.json() as TwitchAuthTokenValidationResponse
+		await upsertUser({
+			channel_id: validatedToken.user_id,
+			expires_in: validatedToken.expires_in,
+			access_token: twitchTokenData.access_token,
+			refresh_token: twitchTokenData.refresh_token,
+			scopes: JSON.stringify(twitchTokenData.scope),
+			obtainment_timestamp: obtainment_timestamp
+		}).then((res) => {
+			console.log(`OAuth flow completed with InsertResult: ${res}`)
+		}).catch((err) => {
+			console.log(`Error during upsertUser: ${err}`)
+		})
+	})
+
+	// TODO: Send user to the "dashboard" page for alerts.
+	// For now, just indicate the JavaScript type of the received token.
 	const tokenType = typeof twitchTokenData.access_token
 	res.redirect(`/twitch/index?tokenType=${tokenType}`)
 	

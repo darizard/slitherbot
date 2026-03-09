@@ -7,6 +7,7 @@ import eventsubclient from './services/eventsubclient.js'
 import wsserver from './websocket/wsserver.js'
 import { app } from './app.js'
 import { router as twitchRouter } from './routes/twitch.js'
+import { validateAndRefreshUserAccessTokens } from './services/twitchauth.js'
 
 // credentials (need SQL and SSL here)
 import { ssl as sslConfig } from './config.js'
@@ -27,4 +28,8 @@ wsserver.init(httpServer)
 httpServer.listen(8080, async () => {
 	console.log('HTTPS Server running on port 8080')
 	await eventsubclient.connect(twitchRouter)
+	validateAndRefreshUserAccessTokens()
+	setInterval(() => {
+		validateAndRefreshUserAccessTokens()
+	}, 60 * 60 * 1000) // Validate tokens every hour
 })

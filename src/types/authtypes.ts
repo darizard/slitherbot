@@ -6,9 +6,27 @@ export type TwitchAuthTokenValidationResponse = {
     scopes: string[]
 }
 
+export function isTwitchAuthTokenValidationResponse(obj: TwitchAuthTokenValidationResponse): obj is TwitchAuthTokenValidationResponse {
+    return (
+        typeof obj.client_id === 'string'
+        && typeof obj.login === 'string'
+        && typeof obj.user_id === 'string'
+        && typeof obj.expires_in === 'number'
+        && Array.isArray(obj.scopes)
+        && obj.scopes.every(item => typeof item === 'string')
+    )
+}
+
 export type TwitchAuthTokenValidationErrorResponse = {
     status: 401,
     message: string
+}
+
+export function isTwitchAuthTokenValidationErrorResponse(obj: TwitchAuthTokenValidationErrorResponse): obj is TwitchAuthTokenValidationErrorResponse {
+    return (
+        obj.message.toLowerCase() === 'invalid access token'
+        && obj.status === 401
+    )
 }
 
 export type TwitchAuthCodeRequest = {
@@ -44,6 +62,41 @@ export function isTwitchAuthUserTokenRequest(obj: TwitchAuthUserTokenRequest): o
         && typeof obj.code === 'string'
         && obj.grant_type === 'authorization_code'
         && isValidHttpsUrl(obj.redirect_uri)
+    )
+}
+
+export type TwitchRefreshUserTokenRequest = {
+    client_id: string
+    client_secret: string
+    grant_type: 'refresh_token'
+    refresh_token: string
+}
+
+export function isTwitchRefreshUserTokenRequest(obj: TwitchRefreshUserTokenRequest): obj is TwitchRefreshUserTokenRequest {
+    return (
+        typeof obj.client_id === 'string'
+        && typeof obj.client_secret === 'string'
+        && obj.grant_type === 'refresh_token'
+        && typeof obj.refresh_token === 'string'
+    )
+}
+
+export type TwitchRefreshUserTokenResponse = {
+    access_token: string
+    refresh_token: string
+    scope: string[]
+    token_type: 'bearer'
+    expires_in: number | undefined
+}
+
+export function isTwitchRefreshUserTokenResponse(obj: TwitchRefreshUserTokenResponse): obj is TwitchRefreshUserTokenResponse {
+    return (
+        typeof obj.access_token === 'string'
+        && typeof obj.refresh_token === 'string'
+        && Array.isArray(obj.scope)
+        && obj.scope.every(item => typeof item === 'string')
+        && obj.token_type === 'bearer'
+        && (typeof obj.expires_in === 'number' || obj.expires_in === undefined)
     )
 }
 
