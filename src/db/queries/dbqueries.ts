@@ -1,4 +1,4 @@
-import { Selectable, Insertable, Updateable, InsertResult } from 'kysely'
+import { Selectable, Insertable, Updateable, InsertResult, sql } from 'kysely'
 import { DB } from 'kysely-codegen'
 import { db } from '../database.js'
 
@@ -26,11 +26,11 @@ export async function upsertUser(user: Insertable<DB['Users']>): Promise<InsertR
     return await db.insertInto('Users')
         .values(user)
         .onDuplicateKeyUpdate({
-            access_token: user.access_token,
-            scopes: user.scopes,
-            expires_in: user.expires_in,
-            obtainment_timestamp: user.obtainment_timestamp,
-            refresh_token: user.refresh_token
+            access_token: sql`VALUES(access_token)`,
+            scopes: sql`VALUES(scopes)`,
+            expires_in: sql`VALUES(expires_in)`,
+            obtainment_timestamp: sql`VALUES(obtainment_timestamp)`,
+            refresh_token: sql`VALUES(refresh_token)`
         })
         .executeTakeFirst()
 

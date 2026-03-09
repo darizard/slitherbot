@@ -180,16 +180,6 @@ router.get('/media/:filename', (req, res) => {
 // to use this app's features. Then we rediret the user to SlitherBot's index page.
 router.get('/oauth', async (req, res) => {
 
-	if(isTwitchAuthError(req.query as TwitchAuthError)) {
-		console.log(`OAuth Error received from Twitch: ${JSON.stringify(req.query)}`)
-		return res.sendStatus(204)
-	}
-
-	if(!isTwitchAuthCode(req.query as TwitchAuthCode)) {
-		console.log(`Received a call to GET /twitch/oauth that was neither an error nor an auth code. Query: ${JSON.stringify(req.query)}`)
-		return res.sendStatus(400)
-	}
-
 	// Process a request with any given state only once
 	const stateIndex = AUTH_STATES.indexOf(req.query.state as string);
 	if(stateIndex === -1) {
@@ -198,6 +188,16 @@ router.get('/oauth', async (req, res) => {
 		return res.sendStatus(400)
 	}
 	AUTH_STATES.splice(stateIndex, 1)
+
+	if(isTwitchAuthError(req.query as TwitchAuthError)) {
+		console.log(`OAuth Error received from Twitch: ${JSON.stringify(req.query)}`)
+		return res.redirect(`/twitch/index?tokenType=null`)
+	}
+
+	if(!isTwitchAuthCode(req.query as TwitchAuthCode)) {
+		console.log(`Received a call to GET /twitch/oauth that was neither an error nor an auth code. Query: ${JSON.stringify(req.query)}`)
+		return res.sendStatus(400)
+	}
 	
 	// We have received an Authorization Code from Twitch that we can use to obtain a User Access Token for a user wanting to use
 	// SlitherBot. We can send our response to Twitch. POST the auth code to https://id.twitch.tv/oauth2/token with query params:
@@ -221,7 +221,7 @@ router.get('/oauth', async (req, res) => {
 		console.log(`SlitherBot has hit Twitch's OAuth system with an authorization code but received an unexpected object in the ` +
 					`response. Token type indicated in the response should be 'bearer': ${(twitchTokenData as any).token_type}\n` +
 					`Investigate on urgent priority as this may indicate a change in Twitch's OAuth system.`)
-		return
+		return res.redirect(`/twitch/index?tokenType=${typeof (twitchTokenData as any).access_token}`)
 	}
 	const obtainment_timestamp = Date.now()
 
@@ -238,18 +238,16 @@ router.get('/oauth', async (req, res) => {
 			scopes: JSON.stringify(twitchTokenData.scope),
 			obtainment_timestamp: obtainment_timestamp
 		}).then((res) => {
-			console.log(`OAuth flow completed with InsertResult: ${res}`)
+			console.log(`OAuth flow completed with InsertResult: ${JSON.stringify(res)}`)
 		}).catch((err) => {
-			console.log(`Error during upsertUser: ${err}`)
+			console.log(`Error during upsertUser: ${JSON.stringify(err)}`)
 		})
 	})
 
 	// TODO: Send user to the "dashboard" page for alerts.
 	// For now, just indicate the JavaScript type of the received token.
 	const tokenType = typeof twitchTokenData.access_token
-	res.redirect(`/twitch/index?tokenType=${tokenType}`)
-	
-	return
+	return res.redirect(`/twitch/index?tokenType=${tokenType}`)
 
 })
 
