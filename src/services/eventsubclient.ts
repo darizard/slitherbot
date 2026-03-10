@@ -57,7 +57,7 @@ export async function connect(router: express.Router) {
 		"hostName": sslConfig.hostName,
 		"apiClient": apiclient,
 		"secret": twitchBotConfig.eventsubSecret,
-		"pathPrefix": "/twitch",
+		"pathPrefix": "/slither",
 		"usePathPrefixInHandlers": false
 	})
 

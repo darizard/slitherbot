@@ -13,7 +13,7 @@ connectWebSocket()
     }
 
     // TODO: Implement changes to the way the WebSocket connects to allow authentication for different users
-    socket = new WebSocket(`wss://${hostName}/twitch?clientType=alerts`)
+    socket = new WebSocket(`wss://${hostName}/slither?clientType=alerts`)
 
     let pingIntervalID = setInterval(() => {
 
@@ -58,13 +58,13 @@ connectWebSocket()
 
         if(eventData.imageFile) {
 
-          alertImageElement.src = "/twitch/media/" + eventData.imageFile || ''
+          alertImageElement.src = "/slither/media/" + eventData.imageFile || ''
 
         }
 
         if(eventData.audioFile) {
 
-          alertAudioElement.src = "/twitch/media/" + eventData.audioFile || ''
+          alertAudioElement.src = "/slither/media/" + eventData.audioFile || ''
           alertAudioElement.play()
 
         }

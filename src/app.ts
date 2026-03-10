@@ -4,9 +4,9 @@ import { fileURLToPath } from 'url'
 import { dirname, join as pathJoin } from 'path'
 
 // API routes
-import twitchroutes from './routes/twitch.js'
-import cssroutes from './routes/css.js'
-import jsroutes from './routes/js.js'
+import slitherRoutes from './routes/slither.js'
+import cssRoutes from './routes/css.js'
+import jsRoutes from './routes/js.js'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
@@ -17,8 +17,8 @@ app.set('view engine', 'ejs') // set EJS as view engine
 app.set('views', pathJoin(__dirname, 'views')) // set views directory for EJS templates
 
 // Define Routes
-app.use('/twitch/css', cssroutes.router)
-app.use('/twitch/js', jsroutes.router)
-app.use('/twitch', twitchroutes.router)
+app.use('/slither/css', cssRoutes.router)
+app.use('/slither/js', jsRoutes.router)
+app.use('/slither', slitherRoutes.router)
 
 export { app }

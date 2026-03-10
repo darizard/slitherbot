@@ -11,7 +11,7 @@ import { isTwitchAuthCode, isTwitchAuthUserToken, isTwitchAuthError, isTwitchAut
 
 import { verify_event_message } from '../services/twitchverify.js'
 
-const AUTH_REDIRECT_URI = new URL(`https://${sslConfig.hostName}/twitch/oauth`)
+const AUTH_REDIRECT_URI = new URL(`https://${sslConfig.hostName}/slither/oauth`)
 const AUTH_STATES: string[] = []
 const SLITHER_SCOPES = ['channel:read:redemptions', 'channel:manage:redemptions']
 
@@ -20,7 +20,7 @@ const jsonParser = bodyParser.json()
 const router = express.Router()
 
 //TODO: Move WebSocket client implementation to its own service file and have the various routes make WebSocket connections when needed.
-let twitchWS = new WebSocket(`wss://${sslConfig.hostName}/twitch?clientType=controller`);
+let twitchWS = new WebSocket(`wss://${sslConfig.hostName}/slither?clientType=controller`);
 twitchWS.onopen = function open() {
 
 	let pingIntervalID = setInterval(() => {
@@ -36,7 +36,7 @@ twitchWS.onopen = function open() {
             console.log('Reconnecting WebSocket for twitch controller...')
             clearInterval(pingIntervalID)
             clearInterval(reconnectIntervalID)
-			twitchWS = new WebSocket(`wss://${sslConfig.hostName}/twitch?clientType=controller`)
+			twitchWS = new WebSocket(`wss://${sslConfig.hostName}/slither?clientType=controller`)
 
         }
     }, 15000) // Check for non-open and non-connecting socket every 15 seconds
@@ -47,7 +47,7 @@ twitchWS.onopen = function open() {
 
 // TODO: Implement /event endpoint to process twitch event messages in a more general manner than the endpoint below
 router.post('/event', (req, res) => {
-	console.log(`/event endpoint hit on /twitch route with body: ${req.body}`)
+	console.log(`/event endpoint hit on /slither route with body: ${req.body}`)
 	res.sendStatus(200)
 })
 
@@ -138,7 +138,7 @@ router.post('/event/channel.channel_points_custom_reward_redemption.add.:channel
 
 router.get('/alerts', (req, res) => {
 
-	res.render("twitch/alerts", {
+	res.render("slither/alerts", {
 		hostName: `${sslConfig.hostName}`
 	})
 
@@ -148,7 +148,7 @@ router.get('/alerts', (req, res) => {
 router.get('/alerts/:token', (req, res) => {
 
 	console.log(`alerts hit for channel ${req.params.token}`)
-	res.render("twitch/alerts", { channelname: req.params.token })
+	res.render("slither/alerts", { channelname: req.params.token })
 
 })
 
@@ -174,7 +174,7 @@ router.get('/media/:filename', (req, res) => {
 })
 
 // OAuth endpoint. When the user logs into Twitch and authorizes slitherbot to access their Twitch account resources
-// pursuant to using the link on auth.ejs (served by /twitch/index), Twitch servers will hit /twitch/oauth with an auth code.
+// pursuant to using the link on auth.ejs (served by /slither/index), Twitch servers will hit /slither/oauth with an auth code.
 // We should use the fetch() API to send this auth code to Twitch's OAuth system after which we will receive the
 // User Access Token in the body of a response. Insert or update the token into the database to allow the user
 // to use this app's features. Then we rediret the user to SlitherBot's index page.
@@ -191,11 +191,11 @@ router.get('/oauth', async (req, res) => {
 
 	if(isTwitchAuthError(req.query as TwitchAuthError)) {
 		console.log(`OAuth Error received from Twitch: ${JSON.stringify(req.query)}`)
-		return res.redirect(`/twitch/index?tokenType=null`)
+		return res.redirect(`/slither/index?tokenType=null`)
 	}
 
 	if(!isTwitchAuthCode(req.query as TwitchAuthCode)) {
-		console.log(`Received a call to GET /twitch/oauth that was neither an error nor an auth code. Query: ${JSON.stringify(req.query)}`)
+		console.log(`Received a call to GET /slither/oauth that was neither an error nor an auth code. Query: ${JSON.stringify(req.query)}`)
 		return res.sendStatus(400)
 	}
 	
@@ -207,7 +207,7 @@ router.get('/oauth', async (req, res) => {
 		client_secret: `${twitchConfig.clientSecret}`,
 		code: `${req.query.code}`,
 		grant_type: 'authorization_code',
-		redirect_uri: `https://${sslConfig.hostName}/twitch/oauth`
+		redirect_uri: `https://${sslConfig.hostName}/slither/oauth`
 	}
 
 	const twitchTokenResponse = await fetch(`https://id.twitch.tv/oauth2/token`, {
@@ -221,7 +221,7 @@ router.get('/oauth', async (req, res) => {
 		console.log(`SlitherBot has hit Twitch's OAuth system with an authorization code but received an unexpected object in the ` +
 					`response. Token type indicated in the response should be 'bearer': ${(twitchTokenData as any).token_type}\n` +
 					`Investigate on urgent priority as this may indicate a change in Twitch's OAuth system.`)
-		return res.redirect(`/twitch/index?tokenType=${typeof (twitchTokenData as any).access_token}`)
+		return res.redirect(`/slither/index?tokenType=${typeof (twitchTokenData as any).access_token}`)
 	}
 	const obtainment_timestamp = Date.now()
 
@@ -247,12 +247,12 @@ router.get('/oauth', async (req, res) => {
 	// TODO: Send user to the "dashboard" page for alerts.
 	// For now, just indicate the JavaScript type of the received token.
 	const tokenType = typeof twitchTokenData.access_token
-	return res.redirect(`/twitch/index?tokenType=${tokenType}`)
+	return res.redirect(`/slither/index?tokenType=${tokenType}`)
 
 })
 
 
-// User has clicked Authorize Me! on /twitch/auth and now we need to create a State value
+// User has clicked Authorize Me! on /slither/auth and now we need to create a State value
 // and redirect the user to Twitch's OAuth system
 router.get('/auth', (req, res) => {
 
@@ -279,13 +279,13 @@ router.get('/auth', (req, res) => {
 // Auth page for slitherbot users. Currently just a button labeled "Authorize Me!" that redirects them to a Twitch login.
 router.get('/index', (req, res) => {
 
-	if(!req.query.token) return res.render('twitch/auth')
+	if(!req.query.token) return res.render('slither/auth')
 
-	res.render('twitch/index', { token: req.query.token })
+	res.render('slither/index', { token: req.query.token })
 
 })
 
-// TODO: Implement test functions for eventsub testing and use the /twitch/event endpoint to filter out and handle test messages.
+// TODO: Implement test functions for eventsub testing and use the /slither/event endpoint to filter out and handle test messages.
 
 export default { router }
 export { router }

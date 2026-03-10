@@ -6,7 +6,7 @@ import fs from 'fs'
 import eventsubclient from './services/eventsubclient.js'
 import wsserver from './websocket/wsserver.js'
 import { app } from './app.js'
-import { router as twitchRouter } from './routes/twitch.js'
+import { router as slitherRouter } from './routes/slither.js'
 import { validateAndRefreshUserAccessTokens } from './services/twitchauth.js'
 
 // credentials (need SQL and SSL here)
@@ -27,7 +27,7 @@ wsserver.init(httpServer)
 // Listen!
 httpServer.listen(8080, async () => {
 	console.log('HTTPS Server running on port 8080')
-	await eventsubclient.connect(twitchRouter)
+	await eventsubclient.connect(slitherRouter)
 	validateAndRefreshUserAccessTokens()
 	setInterval(() => {
 		validateAndRefreshUserAccessTokens()

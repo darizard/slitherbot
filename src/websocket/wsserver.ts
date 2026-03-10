@@ -30,8 +30,8 @@ const connections = new Map<WebSocket, slitherws.Client>()
 //====================================EXPORTED METHODS====================================
 export function init(server: httpsServer) {
     // We are behind a reverse proxy that forwards traffic from port 443 to the local WebSocket server on port 8080, 
-    // so we can only receive WebSocket connections on the path '/twitch' and must parse the client type from the connection URL
-    const wsServer = new WebSocketServer({ server: server, path: '/twitch' })
+    // so we can only receive WebSocket connections on the path '/slither' and must parse the client type from the connection URL
+    const wsServer = new WebSocketServer({ server: server, path: '/slither' })
 
     wsServer.on('connection', function connection(ws, request) {
         ws.on('error', (error) => {
