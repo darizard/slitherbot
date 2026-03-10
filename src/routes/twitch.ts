@@ -4,7 +4,7 @@ import crypto from 'crypto'
 
 import { WebSocket } from 'ws'
 
-import { upsertUser } from '../db/queries/dbqueries.js'
+import { upsertUsers } from '../db/queries/twitchauth.js'
 import { ssl as sslConfig, twitch as twitchConfig, jwt as jwtConfig } from '../config.js' // Needed in auth
 import type { TwitchAuthCode, TwitchAuthUserToken, TwitchAuthError, TwitchAuthCodeRequest, TwitchAuthUserTokenRequest, TwitchAuthTokenValidationResponse } from '../types/authtypes.js'
 import { isTwitchAuthCode, isTwitchAuthUserToken, isTwitchAuthError, isTwitchAuthCodeRequest, isTwitchAuthUserTokenRequest } from '../types/authtypes.js'
@@ -230,7 +230,7 @@ router.get('/oauth', async (req, res) => {
 																	  headers: { Authorization: `OAuth ${twitchTokenData.access_token}` } }
 	)).then(async (res) => {
 		const validatedToken = await res.json() as TwitchAuthTokenValidationResponse
-		await upsertUser({
+		await upsertUsers({
 			channel_id: validatedToken.user_id,
 			expires_in: validatedToken.expires_in,
 			access_token: twitchTokenData.access_token,
