@@ -46,7 +46,7 @@ export async function getAllAccessTokens(): Promise<Pick<Selectable<DB['Users']>
 
 }
 
-export async function invalidateUserAccessToken(channelId: string) {
+export async function invalidateUserAccessTokens(channelIds: string[] | string) {
 
     return await db.updateTable('Users')
         .set({
@@ -55,8 +55,8 @@ export async function invalidateUserAccessToken(channelId: string) {
             expires_in: -1,
             obtainment_timestamp: -1
         })
-        .where('channel_id', '=', channelId)
-        .executeTakeFirst()
+        .where('channel_id', 'in', channelIds)
+        .execute()
 
 }
 
@@ -78,10 +78,10 @@ export async function getLimitedUserByChannelId(channelId: string): Promise<Pick
 
 }
 
-export async function upsertUsers(user: Insertable<DB['Users']> | Insertable<DB['Users']>[]): Promise<InsertResult> {
+export async function upsertUsers(users: Insertable<DB['Users']>[] | Insertable<DB['Users']>) {
 
     return await db.insertInto('Users')
-        .values(user)
+        .values(users)
         .onDuplicateKeyUpdate({
             access_token: sql`VALUES(access_token)`,
             scopes: sql`VALUES(scopes)`,
@@ -89,7 +89,7 @@ export async function upsertUsers(user: Insertable<DB['Users']> | Insertable<DB[
             obtainment_timestamp: sql`VALUES(obtainment_timestamp)`,
             refresh_token: sql`VALUES(refresh_token)`
         })
-        .executeTakeFirst()
+    .execute()
 
 }
 

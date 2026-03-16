@@ -26,10 +26,18 @@ wsserver.init(httpServer)
 
 // Listen!
 httpServer.listen(8080, async () => {
+
 	console.log('HTTPS Server running on port 8080')
 	await eventsubclient.connect(slitherRouter)
+	runServices()
+
+})
+
+async function runServices() {
+
 	validateAndRefreshUserAccessTokens()
 	setInterval(() => {
 		validateAndRefreshUserAccessTokens()
 	}, 60 * 60 * 1000) // Validate tokens every hour
-})
+
+}

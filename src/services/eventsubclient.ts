@@ -12,15 +12,13 @@
 // ***************************************************************************************************************
 // ***************************************************************************************************************
 
-// TODO: Investigate middleware and Apache config conflict with respect to callback functions not firing on middleware events.
-// Cross-notated in ./twitchauth.ts
+// TODO: Remove twurple from project and implement functionality manually
 
 import express from 'express'
 
 // twurple library imports
 import { ApiClient } from '@twurple/api'
 import { EventSubMiddleware } from '@twurple/eventsub-http'
-import type { IRouter } from '@twurple/eventsub-http/node_modules/@types/express-serve-static-core'
 
 // internal app imports
 import { createAuthProvider } from './twitchauth.js'
@@ -70,8 +68,14 @@ export async function connect(router: express.Router) {
 	}
 	
 	// I want to apply the middleware to my Twitch subrouter.
-	// Double assert to force as the library is designed to take an express router.
-	middleware.apply(router as unknown as IRouter)
+	/* Confession: I asked AI to help me with this one because sometimes TypeScript is still over my head with its minutiae.
+	 * The express-serve-static-core IRouter implementations differ between the versions in the express package and the twurple
+	 * package, so I am using a helper function to remove the type from the equation, but for this one line of code only.
+	 * The router object will still have the express.Router type outside of this helper function. */
+	((middleware: EventSubMiddleware, router: any): void => {
+		middleware.apply(router)
+	})(middleware, router)
+	
 	await middleware.markAsReady()
 
 	// ============="EVENTS" as defined by Twurple's EventSubMiddleware=============

@@ -1,3 +1,9 @@
+export type SlitherNewUser = {
+    twitch_id: string,
+    refresh_token: string,
+    alerts_token: string
+}
+
 export type TwitchAuthTokenValidationResponse = {
     client_id: string
     login: string
@@ -31,7 +37,7 @@ export function isTwitchAuthTokenValidationErrorResponse(obj: TwitchAuthTokenVal
 
 export type TwitchAuthCodeRequest = {
     client_id: string
-    redirect_uri: string
+    redirect_uri: URL
     response_type: 'code'
     scope: string
     state?: string
@@ -146,7 +152,12 @@ export function isTwitchAuthError(obj: TwitchAuthError): obj is TwitchAuthError 
     )
 }
 
-function isValidHttpsUrl(url: string) {
+function isValidHttpsUrl(url: string | URL): boolean {
+    
+    if(typeof url === 'object' && url instanceof URL) {
+        return url.protocol === 'https:'
+    }
+
     let tryUrl
     try {
         tryUrl = new URL(url)
