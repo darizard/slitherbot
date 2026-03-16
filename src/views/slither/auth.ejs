@@ -10,8 +10,11 @@
   <link rel="stylesheet" href="/slither/css/auth.css" />
 </head>
 <body>
-  <div id="slitherbot-auth-main">
-    <a class="link-button" id="authorize" href="/slither/auth">Authorize Me!</a>
+  <%- include('partials/navbar.ejs') %>
+  <div id="main-layout-container">
+    <div id="slitherbot-auth-main">
+      <a class="link-button" id="slitherbot-auth-button" href="/slither/auth">Connect to Twitch</a>
+    </div>
   </div>
 </body>
 

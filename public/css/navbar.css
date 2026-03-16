@@ -1,0 +1,39 @@
+.navbar {
+    background-color: var(--primary-color);
+    color: var(--text-color);
+    font-size: large;
+
+    position: sticky;
+    top: 0;
+}
+
+.navbar ul {
+    display: flex;
+    justify-content: right;
+    align-items: stretch;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.navbar li {
+    background-color: var(--primary-color);
+    padding: 1rem;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+}
+
+.navbar li:hover {
+    background-color: var(--lighter-primary);
+    cursor: pointer;
+}
+
+.navbar img {
+    height: 3rem;
+}
+
+.navbar a {
+    text-decoration: none;
+    color: var(--text-color);
+}

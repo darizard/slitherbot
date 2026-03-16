@@ -3,13 +3,17 @@
         "strict": true,
         "outDir": "./built",
         "allowJs": true,
-        "target": "es2022",
-        "module": "es2022",
+        "target": "esnext",
+        "module": "nodenext",
         "noEmitOnError": true,
         "noImplicitAny": true,
-        "moduleResolution": "node",
         "skipLibCheck": true,
-        "esModuleInterop": true
+        "esModuleInterop": true,
+        "moduleResolution": "nodenext"
     },
-    "include": ["./src/**/*"]
+    "include": ["./src/**/*"],
+    "ts-node": {
+        "esm": true,
+        "experimentalSpecifierResolution": "node"
+    }
 }

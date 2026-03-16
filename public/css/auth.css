@@ -3,5 +3,13 @@
     flex-direction: column;
     justify-content: center;
     align-items: center;
-    min-height: 100vh;
+
+    height: calc(100vh - var(--navbar-height));
+
+    min-height: 230px;
+    min-width: 400px;
+}
+
+#slitherbot-auth-button {
+    padding: 20px 40px;
 }

@@ -1,0 +1,11 @@
+<link rel="stylesheet" href="/slither/css/navbar.css" />
+<div class="navbar">
+    <ul>
+        <% if(typeof navItems !== 'undefined') for(const navItem of navItems) { %>
+            <li><a href=<%= navItem.href %>><%= navItem.label %></a></li>
+        <% } %>
+        <li>
+            <a href="https://github.com/darizard/slitherbot" target="_blank" rel="noopener noreferrer"><img src="/slither/media/dari-badge-silhouette-nocorners-400px.png" /></a>
+        </li>
+    </ul>
+</div>

@@ -7,11 +7,12 @@
   <meta name="description" content="" />
   <link rel="icon" href="/slither/media/favicon.ico">
   <link rel="stylesheet" href="/slither/css/base-style.css" />
-  <link rel="stylesheet" href="/slither/css/index.css" />
+  <link rel="stylesheet" href="/slither/css/home.css" />
 </head>
 <body>
-  <div id="slitherbot-index-main">
-    <a class="link-button" id="start-btn">Ready to Start! Type of token is a <%= typeof tokenType %></a>
+  <%- include('./partials/navbar.ejs') %>
+  <div id="slitherbot-home-main">
+    <a class="link-button" id="start-btn">You've been redirected to Home! The Type of the token that came with you is is a <%= tokenType %></a>
   </div>
 </body>
 
