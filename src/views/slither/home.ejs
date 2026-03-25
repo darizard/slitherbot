@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8" />
   <title>SlitherBot</title>
@@ -8,12 +9,18 @@
   <link rel="icon" href="/slither/media/favicon.ico">
   <link rel="stylesheet" href="/slither/css/base-style.css" />
   <link rel="stylesheet" href="/slither/css/home.css" />
+  <!-- For now, stick the access token script in the header and don't load the page until  -->
+  <script src="/slither/js/auth.js"></script>
+  <script src="/slither/js/home.js"></script>
 </head>
+
 <body>
   <%- include('./partials/navbar.ejs') %>
   <div id="slitherbot-home-main">
-    <a class="link-button" id="start-btn">You've been redirected to Home! The Type of the token that came with you is is a <%= tokenType %></a>
+      <p>Welcome to Home! Your OBS Alerts URL is:</p>
+      <p><%= alertsUrl ? alertsUrl : '' %></p>
   </div>
+
 </body>
 
 </html>

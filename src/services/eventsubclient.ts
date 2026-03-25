@@ -63,8 +63,8 @@ export async function connect(router: express.Router) {
 	// subscription management in the future, but I will need to determine the details once database retrieval is working.
 	let subs = await apiclient.eventSub.getSubscriptions()
 	for(let sub of subs.data) {
-		//if(sub.status !== 'enabled') sub.unsubscribe()
-		await sub.unsubscribe() // Unsubscribe from all existing EventSub subscriptions as a testing measure.
+		if(sub.status !== 'enabled') sub.unsubscribe()
+		//await sub.unsubscribe() // Unsubscribe from all existing EventSub subscriptions as a testing measure.
 	}
 	
 	// I want to apply the middleware to my Twitch subrouter.
@@ -100,11 +100,7 @@ export async function connect(router: express.Router) {
 
 	// ============="METHODS" as defined by Twurple's EventSubMiddleware=============
 
-	// TODO: Implement handlers intelligently based on the active channel point rewards and other Twitch events we want to respond to for each channel.
-	// For now, just subscribe to the event that triggers whenever any channel point reward is redeemed on darizard's Twitch channel.
-	// MYSTERY: The callback passed here never fires, though the middleware routes the request to the correct endpoint, allowing it to be handled
-	// by the current application logic. Current working theory is that the middleware never receives the event and it is instead diverted to the
-	// application's internal HTTP server's router before it can be processed by the middleware. 
+	// TODO: Update along with user-specific logic and removing twurple from the project
 	let dariID: string = "123657070"
 
 	middleware.onChannelRedemptionAdd(dariID, (event) => {

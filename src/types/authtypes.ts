@@ -1,3 +1,5 @@
+export type SlitherTokenType = 'access' | 'refresh' | 'alerts'
+
 export type SlitherNewUser = {
     twitch_id: string,
     refresh_token: string,
@@ -166,6 +168,13 @@ function isValidHttpsUrl(url: string | URL): boolean {
     }
 
     return tryUrl.protocol === 'https:'
+}
+
+export type AlertsWebSocketAuthInfo = {
+
+    userId: string,
+    alertsJwt: string
+
 }
 
 export * as default from './authtypes.js'

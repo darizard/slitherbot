@@ -2,6 +2,7 @@
 import express from 'express'
 import { fileURLToPath } from 'url'
 import { dirname, join as pathJoin } from 'path'
+import cookieParser from 'cookie-parser'
 
 // API routes
 import slitherRoutes from './routes/slither.js'
@@ -15,6 +16,8 @@ const __dirname = dirname(__filename)
 const app = express()
 app.set('view engine', 'ejs') // set EJS as view engine
 app.set('views', pathJoin(__dirname, 'views')) // set views directory for EJS templates
+
+app.use(cookieParser())
 
 // Define Routes
 app.use('/slither/css', cssRoutes.router)

@@ -12,8 +12,7 @@ connectWebSocket()
       socket.close()
     }
 
-    // TODO: Implement changes to the way the WebSocket connects to allow authentication for different users
-    socket = new WebSocket(`wss://${hostName}/slither?clientType=alerts`)
+    socket = new WebSocket(`wss://${hostName}/slither?clientType=alerts&token=${connectionToken}`)
 
     let pingIntervalID = setInterval(() => {
 
@@ -42,36 +41,40 @@ connectWebSocket()
 
     socket.addEventListener('message', event => {
 
-      let eventData
-      try { eventData = JSON.parse(event.data) } 
+      let messageJSON
+      try { messageJSON = JSON.parse(event.data) } 
       catch (e) { return } // If non-json received over WebSocket, ignore it.
 
       // TODO: Allow different alerts to queue up one after the other instead of just replacing the current alert. 
       // This will likely require changes to the way the WebSocket server sends messages to include some sort of queue ID or timestamp, 
       // and changes to the client to manage a queue of incoming alerts and display them one at a time for their specified duration.
-      if(eventData.type === "alert") {
+      if(messageJSON.type === "alert") {
 
-        console.log('Message received from server: ', eventData)
+        console.log('Message received from server: ', messageJSON.data)
         console.log('MessageEvent object: ', event)
         const alertImageElement = document.getElementById('alert-image')
         const alertAudioElement = document.getElementById('alert-audio')
 
-        if(eventData.imageFile) {
+        if(messageJSON.data.imageFile) {
 
-          alertImageElement.src = "/slither/media/" + eventData.imageFile || ''
+          alertImageElement.style.display = 'inline'
+          alertImageElement.src = "/slither/media/" + messageJSON.data.imageFile || "/slither/media/"
 
         }
 
-        if(eventData.audioFile) {
+        if(messageJSON.data.audioFile) {
 
-          alertAudioElement.src = "/slither/media/" + eventData.audioFile || ''
+          alertAudioElement.src = "/slither/media/" + messageJSON.data.audioFile || ''
           alertAudioElement.play()
 
         }
         
         setTimeout(() => {
+
           alertImageElement.src = alertAudioElement.src = ''
-        }, eventData.duration || 8000) // Reset to default image after 8 seconds
+          alertImageElement.style.display = 'none'
+
+        }, messageJSON.data.duration || 8000) // Reset to default image after 8 seconds
 
       }
 

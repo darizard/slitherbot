@@ -46,7 +46,16 @@ export async function getAllAccessTokens(): Promise<Pick<Selectable<DB['Users']>
 
 }
 
-export async function invalidateUserAccessTokens(channelIds: string[] | string) {
+export async function getAccessTokenForUser(userId: string): Promise<string | undefined> {
+
+    return (await db.selectFrom('Users')
+        .select('access_token')
+        .where('channel_id', '=', userId)
+        .executeTakeFirst())?.access_token
+
+}
+
+export async function clearAccessTokensForUser(channelIds: string[] | string) {
 
     return await db.updateTable('Users')
         .set({

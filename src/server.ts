@@ -4,7 +4,7 @@ import fs from 'fs'
 
 // running services
 import eventsubclient from './services/eventsubclient.js'
-import wsserver from './websocket/wsserver.js'
+import wsserver from './services/wsserver.js'
 import { app } from './app.js'
 import { router as slitherRouter } from './routes/slither.js'
 import { validateAndRefreshUserAccessTokens } from './services/twitchauth.js'

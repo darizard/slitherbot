@@ -26,6 +26,7 @@
     "@types/send": "^1.2.1",
     "@types/ws": "^8.18.1",
     "body-parser": "^1.20.3",
+    "cookie-parser": "^1.4.7",
     "dotenv": "^17.2.3",
     "ejs": "^3.0.2",
     "express": "^4.19.2",
@@ -51,12 +52,13 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@types/cookie-parser": "^1.4.10",
     "@types/supertest": "^7.2.0",
     "globals": "^17.3.0",
     "kysely-codegen": "^0.20.0",
     "nodemon": "^3.1.14",
     "supertest": "^7.2.2",
-    "ts-node": "^10.9.2",
+    "tsx": "^4.21.0",
     "typescript-eslint": "^8.56.1",
     "vitest": "^4.0.18"
   }

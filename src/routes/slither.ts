@@ -2,48 +2,29 @@ import express from 'express'
 import bodyParser from 'body-parser'
 import crypto from 'crypto'
 
-import { WebSocket } from 'ws'
+import { ssl as sslConfig, twitch as twitchConfig, ws as wsConfig } from '../config.js' // Needed in auth
 
-import { ssl as sslConfig, twitch as twitchConfig, jwt as jwtConfig } from '../config.js' // Needed in auth
+import { SlitherControllerClientWebSocket } from '../classes/slitherws.js'
 
-import { registerSlitherUser } from '../services/slitherauth.js'
 import type { TwitchAuthCodeRequest } from '../types/authtypes.js'
+import { registerOrLoginSlitherUser, signSlitherToken, verifySlitherToken, refreshSlitherAccessToken, addSlitherTokenCookie, verifyAlertsConnectionToken } from '../services/slitherauth.js'
+import { registerTwitchUser, oauthStateOrParamProblem, fetchTwitchUserAccessToken, validateTokenAndGetUserID } from '../services/twitchauth.js'
+import { AlertMessage } from '../types/slitherwstypes.js'
 
 const AUTH_REDIRECT_URI = new URL(`https://${sslConfig.hostName}/slither/oauth`)
-const AUTH_STATES: string[] = []
-const SLITHER_SCOPES = ['channel:read:redemptions', 'channel:manage:redemptions']
+const AUTH_STATES = new Set<string>
+const SLITHER_SCOPES: string[] = ['channel:read:redemptions', 'channel:manage:redemptions']
 
 const rawParser = bodyParser.raw({ type: 'application/json' })
 const jsonParser = bodyParser.json()
 const router = express.Router()
 
-//TODO: Move WebSocket client implementation to its own service file and have the various routes make WebSocket connections when needed.
-let twitchWS = new WebSocket(`wss://${sslConfig.hostName}/slither?clientType=controller`);
-twitchWS.onopen = function open() {
-
-	let pingIntervalID = setInterval(() => {
-
-        if (twitchWS.readyState === WebSocket.OPEN)
-            twitchWS.send(JSON.stringify({ type: "ping" }))
-
-    }, 60000) // Ping the WS server every 1 minute to keep the connection alive
-
-    let reconnectIntervalID = setInterval(() => {
-        if (twitchWS.readyState !== WebSocket.OPEN && twitchWS.readyState !== WebSocket.CONNECTING) {
-
-            console.log('Reconnecting WebSocket for twitch controller...')
-            clearInterval(pingIntervalID)
-            clearInterval(reconnectIntervalID)
-			twitchWS = new WebSocket(`wss://${sslConfig.hostName}/slither?clientType=controller`)
-
-        }
-    }, 15000) // Check for non-open and non-connecting socket every 15 seconds
-
-	console.log("Twitch controller WebSocket connected to local WebSocket server.")
-
-}
+const ws = new SlitherControllerClientWebSocket()
+ws.connect(wsConfig.controllerSecret) // unawaited async
 
 import { verifyEventMessage } from '../services/twitchauth.js'
+import { getAlertsTokenForUser, getUserIDForRefreshToken } from '../db/queries/slitherauth.js'
+import { jwtVerify } from 'jose'
 /**
  * POST request received from Twitch when either:
  * 		- We create an EventSub subscription to a channel point reward and have to respond
@@ -63,13 +44,8 @@ router.post('/event/channel.channel_points_custom_reward_redemption.add.:channel
 		return res.sendStatus(401)
 	}
 	
-	//TODO: Remove if statement when multiple channels are supported. For now, just make sure the post is for the correct channel before doing anything with it.
-	if(req.params.channelid !== "123657070") {
-		
-		console.log(`Channel Point Redemption Add event received for unavailable channel id ${req.params.channelid}. Send 200 response to Twitch but process nothing.`)
-		return res.sendStatus(200)
-
-	}
+	// TODO: This will be set from the request body once we start pulling info from there instead of using the route param
+	const userId = req.params.channelid
 
 	// Make sure body is parseable json
 	try {
@@ -92,17 +68,20 @@ router.post('/event/channel.channel_points_custom_reward_redemption.add.:channel
 		// TODO: Add event subscriptions to the backend DB schema
 		// TODO: Upsert the subscription information in our database
 
+		return
 	}
 
 	else if(messageType === 'notification') {
 		
 		const { id: subscription_id, error, error_description, state } = req.body.subscription
 		// Build an alert object based on the channel id and reward id in the incoming event message.
-		let type: string = 'alert'
-		let imageFile: string = 'RareCharTP-Trim.gif'
-		let audioFile: string = 'DiscordMute.mp3'
-		let alertText: string = 'Channel Points Reward Message'
-		let duration: number = 8000
+		const type = 'alert'
+		// TODO: Pull user id from the notification itself once we move to just an /event endpoint
+		//const userId = req.body.event.broadcaster_user_id
+		const imageFile: string = 'RareCharTP-Trim.gif'
+		const audioFile: string = 'DiscordMute.mp3'
+		const alertText: string = 'Channel Points Reward Message'
+		const duration: number = 8000
 
 		console.log(`Reward redeemed. Request body: ${JSON.stringify(req.body)}`)
 
@@ -110,9 +89,15 @@ router.post('/event/channel.channel_points_custom_reward_redemption.add.:channel
 		res.sendStatus(204)
 
 		// send the reward redemption info to the WebSocket server. the 
-		const wsmsgobj = { type: type, imageFile: imageFile, audioFile: audioFile, alertText: alertText, duration: duration };
-		twitchWS.send(JSON.stringify(wsmsgobj)) 
+		const wsmsgobj: AlertMessage = { type: type, 
+										 userId: userId,
+										 data: { imageFile: imageFile, 
+												audioFile: audioFile, 
+												alertText: alertText, 
+												duration: duration } }
+		ws.send(wsmsgobj)
 
+		return
 	}
 
 	else if(messageType === 'revocation') {
@@ -123,34 +108,54 @@ router.post('/event/channel.channel_points_custom_reward_redemption.add.:channel
 
 		// TODO: Add event subscriptions to the backend DB schema
 		// TODO: Remove the subscription information in our database OR set as revoked
+
+		return
 	}
 
 	else {
 		res.sendStatus(204);
-		console.log(`Unkonwn message type received from Twitch: ${req.headers[messageType]}`)
+		console.log(`Unknown message type received from Twitch: ${req.headers[messageType]}`)
+
+		return
 	}
 
 })
 
-// TODO: Implement /event endpoint to process twitch event messages in a more general manner than the endpoint below
+// TODO: Implement /event endpoint to process twitch event messages in a more general manner than the endpoint above
 router.post('/event', (req, res) => {
 	console.log(`POST /event endpoint hit on /slither route with body: ${req.body}`)
 	res.sendStatus(200)
 })
 
-router.get('/alerts', (req, res) => {
+// TODO: Implement user-specific alerts websocket connections on the client side
+router.get('/alerts/:paramToken', async (req, res) => {
 
-	res.render("slither/alerts", {
-		hostName: `${sslConfig.hostName}`
-	})
+	const alertsJwt = await verifyAlertsConnectionToken(req.params.paramToken)
+
+	res.render("slither/alerts", { hostName: sslConfig.hostName,
+									connectionToken: alertsJwt })
 
 })
 
-// TODO: Is this how we want to hit the alerts endpoint? Not yet a functional route.
-router.get('/alerts/:token', (req, res) => {
+// Obtain the alerts token for the given user intended for use in an OBS browser source URL. This is not strictly private information
+router.post('/alerts/token', jsonParser, async (req, res) => {
 
-	console.log(`alerts hit for channel ${req.params.token}`)
-	res.render("slither/alerts", { channelname: req.params.token })
+	const userId = await verifySlitherToken(req.cookies?.access_token, 'access')
+	if(!userId) return res.status(401).json({error: `Invalid access token when requesting alerts token at POST /slither/alerts/token`})
+
+	const alertsToken = await getAlertsTokenForUser(userId)
+	if(!alertsToken) return res.status(500).json({error: `Could not obtain alerts token for given user at POT /slither/alerts/token`})
+	
+	return res.status(200).json({ alerts_token: alertsToken })
+
+})
+
+router.get('/alerts', (req, res) => {
+
+	res.render("slither/alerts", {
+		hostName: sslConfig.hostName,
+		connectionToken: undefined
+	})
 
 })
 
@@ -175,7 +180,71 @@ router.get('/media/:filename', (req, res) => {
 
 })
 
-import { registerTwitchUser, oauthStateOrParamProblem, fetchTwitchUserAccessToken, validateTokenAndGetUserID } from '../services/twitchauth.js'
+router.post('/auth/refresh', jsonParser, async (req, res) => {
+
+	const refreshToken = req.cookies?.refresh_token
+	if(!refreshToken) {
+		return res.status(401).json({error: `Refresh token not provided`})
+	}
+
+	const userId = await verifySlitherToken(refreshToken, 'refresh')
+	if(!userId) {
+		res.clearCookie('refresh_token')
+		return res.status(401).json({error: `Session expired`})
+	}
+
+	const accessToken = await signSlitherToken(userId, 'access')
+	if(!accessToken) console.error(`undefined value detected for access token cookie being issued in /auth/refresh`)
+
+	addSlitherTokenCookie(res, accessToken, 'access')
+
+	return res.sendStatus(204)
+
+})
+
+// User has clicked Authorize Me! on /slither/auth and now we need to create a State value
+// and redirect the user to Twitch's OAuth system
+router.get('/auth/twitch', (req, res) => {
+
+	const state = crypto.randomBytes(32).toString('hex')
+	AUTH_STATES.add(state)
+
+	setTimeout(() => {
+
+		const stateExists = AUTH_STATES.has(state)
+		if(stateExists) {
+			AUTH_STATES.delete(state)
+		}
+		
+	}, 1000 * 60 * 10) // State is valid for 10 minutes. After that, remove it from the array so it cannot be used to authenticate.
+
+	let scopes = '';
+	for(let scope of SLITHER_SCOPES) scopes += `${encodeURIComponent(scope)}+`
+	scopes = scopes.substring(0, scopes.length-1)
+
+	let twitchAuthParams: TwitchAuthCodeRequest = {
+		client_id: twitchConfig.clientId,
+		redirect_uri: AUTH_REDIRECT_URI,
+		response_type: "code",
+		scope: scopes,
+		state: state
+	}
+
+	res.redirect(`https://id.twitch.tv/oauth2/authorize?client_id=${twitchAuthParams.client_id}&redirect_uri=${twitchAuthParams.redirect_uri}&response_type=${twitchAuthParams.response_type}&scope=${twitchAuthParams.scope}&state=${twitchAuthParams.state}`)
+
+})
+
+router.get('/auth', async (req, res) => {
+
+	// If this returns a userID, the user is already logged in and should not be presented the auth view
+	if(await verifySlitherToken(req.cookies?.access_token, 'access')) {
+		return res.redirect('/slither/home')
+	}
+
+	res.render('slither/auth')
+
+})
+
 // OAuth endpoint. When the user logs into Twitch and authorizes slitherbot to access their Twitch account resources
 // pursuant to using the link on auth.ejs (served by /slither/home), Twitch servers will hit /slither/oauth with an auth code.
 // We should use the fetch() API to send this auth code to Twitch's OAuth system after which we will receive the
@@ -191,102 +260,88 @@ router.get('/oauth', async (req, res) => {
 	// SlitherBot. We can send our response to Twitch. POST the auth code to https://id.twitch.tv/oauth2/token with query params:
 	// { client_id, client_secret, code, grant_type, redirect_uri }
 	const twitchTokenData = await fetchTwitchUserAccessToken(req)
-	if(!twitchTokenData) return res.redirect(`/slither/home?tokenType=${typeof (twitchTokenData as any).access_token}`)
     const obtainmentTimestamp = Date.now()
 
 	// Immediately validate the access token to get the userID from Twitch
 	const twitchUserID = await validateTokenAndGetUserID(twitchTokenData.access_token)
-	if(!twitchUserID) return res.redirect(`/slither/home?tokenType=${typeof (twitchTokenData as any).access_token}`)
+	if(!twitchUserID) return res.status(500).end()
 
 	// Everything seems in order. Store the token in our database and register the user for the SlitherBot application in general.
 	// Then, redirect the user. This also implicitly sends a 302 response to Twitch /thumbup.
 
 	// Store Twitch access tokens in the database. This function will print a log message to the console in case of a DB error.
+	// Also if we already have an old user access token, be a good client and send a revocation request to Twitch
 	// We have already received and validated the access tokens as part of the OAuth flow so in the event of an error, keep going.
 	await registerTwitchUser(twitchTokenData, twitchUserID, obtainmentTimestamp)
 
-	// TODO: To this point, we have acquired Twitch tokens for the given user. We should have asked for the Slither refresh token cookie
-	const registeredRefreshToken = await registerSlitherUser(twitchUserID)
+	// To this point, we have acquired Twitch tokens for the given user. We need to add or update the Slither refresh token
+	// in the user's browser cookies
+	const signedRefreshToken = await registerOrLoginSlitherUser(twitchUserID)
+	if(!signedRefreshToken) return res.sendStatus(500)
+	const signedAccessToken = await signSlitherToken(twitchUserID, 'access')
 
-	// TODO: Implement JWTs before sending these out to browsers raw
+	addSlitherTokenCookie(res, signedRefreshToken, 'refresh')
+	addSlitherTokenCookie(res, signedAccessToken, 'access')
 
-	/*
-	if(registeredRefreshToken){ 
-		res.cookie('refresh_token', registeredRefreshToken, {
-			httpOnly: true,
-			secure: true,
-			sameSite: 'strict'
-		})
-	}
-	*/
-
-	// TODO: Send user to the "dashboard" page for alerts.
-	// For now, just indicate the JavaScript type of the received token.
-	const tokenType = typeof twitchTokenData.access_token
-	return res.redirect(`/slither/home?tokenType=${tokenType}`)
-})
-
-
-// User has clicked Authorize Me! on /slither/auth and now we need to create a State value
-// and redirect the user to Twitch's OAuth system
-router.get('/auth', (req, res) => {
-
-	const STATE = crypto.randomBytes(32).toString('hex')
-	AUTH_STATES.push(STATE)
-	setTimeout(() => {
-		const stateIndex = AUTH_STATES.indexOf(STATE)
-		if(stateIndex !== -1) {
-			AUTH_STATES.splice(stateIndex, 1)
-		}
-	}, 1000 * 60 * 10) // State is valid for 10 minutes. After that, remove it from the array so it cannot be used to authenticate.
-
-	let scopes = '';
-	for(let scope of SLITHER_SCOPES) scopes += `${encodeURIComponent(scope)}+`
-	scopes = scopes.substring(0, scopes.length-1)
-
-	let twitchAuthParams: TwitchAuthCodeRequest = {
-		client_id: twitchConfig.clientId,
-		redirect_uri: AUTH_REDIRECT_URI,
-		response_type: "code",
-		scope: scopes,
-		state: STATE
-	}
-
-	res.redirect(`https://id.twitch.tv/oauth2/authorize?client_id=${twitchAuthParams.client_id}&redirect_uri=${twitchAuthParams.redirect_uri}&response_type=${twitchAuthParams.response_type}&scope=${twitchAuthParams.scope}&state=${twitchAuthParams.state}`)
-
+	return res.redirect(`/slither/home`)
 })
 
 // GET /slither/home with no tokenType parameter renders the slither/auth.ejs view instead.
 // GET /slither/home with a tokenType parameter renders slither/home.ejs while passing along the tokenType parameter
-router.get('/home', (req, res) => {
+router.get('/home', async (req, res) => {
 
-	if(!req.query.tokenType) return res.render('slither/auth')
-	
-	res.render(`slither/home`, { tokenType: req.query.tokenType })
+	let navItems: { label: string, href: string }[] = []
+
+	let userId = await verifySlitherToken(req.cookies?.access_token, 'access')
+	if(!userId) {
+		const refreshResult = await refreshSlitherAccessToken(req.cookies?.refresh_token)
+		if(!refreshResult || !refreshResult.accessToken) return res.redirect(`/slither/auth`)
+
+		addSlitherTokenCookie(res, refreshResult.accessToken, 'access')
+
+		userId = refreshResult.userId
+	}
+
+	navItems.push({href: `/slither/logout`, label: 'Logout'})
+
+	const alertsToken = await getAlertsTokenForUser(userId)
+	const alertsUrl = (() => {
+		if(!alertsToken) return ''
+		return `https://${sslConfig.hostName}/slither/alerts/${alertsToken}`
+	})()
+
+	res.render(`slither/home`, {
+		alertsUrl: alertsUrl,
+		navItems: navItems
+	})
 	
 })
 
-// GET /slither/:routeName that is not already handled redirects to /slither/home instead, with a tokenType of null
-router.get('/:badroute', (req, res) => {
+router.get('/logout', (req, res) => {
 
-	console.log(`Got GET request to /slither/${req.params.badroute}. Redirecting to /slither/`)
-	res.redirect(`/slither/home?tokenType=${null}`)
+	res.clearCookie('access_token')
+	res.clearCookie('refresh_token')
+	res.redirect('/slither/home')
 
 })
-
 
 // GET /slither simply redirects the user to /slither/home
-// TODO: Integrate this better into the frontend. We have functionality, let's create a better application around it.
-// Auth page for slitherbot users. Currently just a button labeled "Authorize Me!" that redirects them to a Twitch login.
 router.get('/', (req, res) => {
 
-	if(!req.query.tokenType) return res.redirect('slither/home')
-
-	return res.redirect(`slither/home?tokenType=${req.query.tokenType}`)
+	return res.redirect(`/slither/home`)
 
 })
 
 // TODO: Implement test functions for eventsub testing and use the /slither/event endpoint to filter out and handle test messages.
+
+// GET /slither/:routeName that is not already handled redirects to /slither/home instead, with a tokenType of null
+router.get('/:badroute', (req, res) => {
+
+	console.log(`Got GET request to /slither/${req.params.badroute}. Redirecting to /slither/home`)
+	res.redirect(`/slither/home`)
+
+})
+
 
 export default { router }
 export { router }
