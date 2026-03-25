@@ -13,6 +13,10 @@ import { AlertMessage } from '../types/slitherwstypes.js'
 
 const AUTH_REDIRECT_URI = new URL(`https://${sslConfig.hostName}/slither/oauth`)
 const AUTH_STATES = new Set<string>
+
+// TODO: Move these into a separate file and include more information about all the events we
+// want to subscribe to. Or maybe a DB table, but this is probably static info we can just keep
+// in a .ts file
 const SLITHER_SCOPES: string[] = ['channel:read:redemptions', 'channel:manage:redemptions']
 
 const rawParser = bodyParser.raw({ type: 'application/json' })
@@ -24,7 +28,6 @@ ws.connect(wsConfig.controllerSecret) // unawaited async
 
 import { verifyEventMessage } from '../services/twitchauth.js'
 import { getAlertsTokenForUser, getUserIDForRefreshToken } from '../db/queries/slitherauth.js'
-import { jwtVerify } from 'jose'
 /**
  * POST request received from Twitch when either:
  * 		- We create an EventSub subscription to a channel point reward and have to respond
@@ -37,22 +40,33 @@ import { jwtVerify } from 'jose'
  * 
  * This method must call the appropriate channel point reward
  **/
-router.post('/event/channel.channel_points_custom_reward_redemption.add.:channelid', rawParser, (req, res) => {
-	// Verify that Twitch did indeed send this request
+// TODO: Implement /event endpoint to process twitch event messages in a more general manner than the endpoint above
+router.post('/event/:twitcheventparam', rawParser, async (req, res) => {
+
 	if(!verifyEventMessage(req)) {
-		console.log(`Received unverified event message at URL: ${req.url}`)
+		console.log(`Received unverified event message with request URL: ${req.url}`)
 		return res.sendStatus(401)
 	}
-	
-	// TODO: This will be set from the request body once we start pulling info from there instead of using the route param
-	const userId = req.params.channelid
+
+	const messageId = req.headers['twitch-eventsub-message-id']?.toString()
+	// TODO: Use eventsubclient to handle messageId in memory
+
+	const messageTimestamp = req.headers['twitch-eventsub-message-timestamp'] as string
+	if(Date.parse(messageTimestamp ?? '') < Date.now() - 1000 * 60 * 10) {
+		// TODO: Elevate logging as a security issue
+		console.error(`Received Twitch message more than 10 minutes old. Investigate.`)
+		return res.sendStatus(401)
+	}
 
 	// Make sure body is parseable json
-	try {
-		req.body = JSON.parse(req.body)
-	} catch(e) {
+	try { req.body = JSON.parse(req.body) }
+	catch(e) { 
+		// TODO: Elevate log as Twitch has changed or added something I need to know about
 		console.log('Error parsing req.body as JSON: ', e)
+		res.sendStatus(204)
 	}
+
+	const userId = req.body.subscription.condition.broadcaster_user_id as string
 
 	// We trust twitch to give us the message type as a string
 	const messageType: string = req.headers['twitch-eventsub-message-type'] as string
@@ -72,29 +86,24 @@ router.post('/event/channel.channel_points_custom_reward_redemption.add.:channel
 	}
 
 	else if(messageType === 'notification') {
-		
-		const { id: subscription_id, error, error_description, state } = req.body.subscription
-		// Build an alert object based on the channel id and reward id in the incoming event message.
-		const type = 'alert'
-		// TODO: Pull user id from the notification itself once we move to just an /event endpoint
-		//const userId = req.body.event.broadcaster_user_id
-		const imageFile: string = 'RareCharTP-Trim.gif'
-		const audioFile: string = 'DiscordMute.mp3'
-		const alertText: string = 'Channel Points Reward Message'
-		const duration: number = 8000
+
+		if(req.body.subscription.type !== 'channel.channel_points_custom_reward_redemption.add') {
+			return res.sendStatus(204)
+		}
 
 		console.log(`Reward redeemed. Request body: ${JSON.stringify(req.body)}`)
 
 		// respond with 204 No Content...
 		res.sendStatus(204)
 
-		// send the reward redemption info to the WebSocket server. the 
-		const wsmsgobj: AlertMessage = { type: type, 
+		// TODO: Build alert message based on event type and channel id
+		// send the reward redemption info to the WebSocket server
+		const wsmsgobj: AlertMessage = { type: 'alert', 
 										 userId: userId,
-										 data: { imageFile: imageFile, 
-												audioFile: audioFile, 
-												alertText: alertText, 
-												duration: duration } }
+										 data: { imageFile: 'RareCharTP-Trim.gif', 
+												audioFile: 'DiscordMute.mp3', 
+												alertText: 'Reward Text!', 
+												duration: 8000 } }
 		ws.send(wsmsgobj)
 
 		return
@@ -119,12 +128,6 @@ router.post('/event/channel.channel_points_custom_reward_redemption.add.:channel
 		return
 	}
 
-})
-
-// TODO: Implement /event endpoint to process twitch event messages in a more general manner than the endpoint above
-router.post('/event', (req, res) => {
-	console.log(`POST /event endpoint hit on /slither route with body: ${req.body}`)
-	res.sendStatus(200)
 })
 
 // TODO: Implement user-specific alerts websocket connections on the client side

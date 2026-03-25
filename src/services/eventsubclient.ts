@@ -12,8 +12,6 @@
 // ***************************************************************************************************************
 // ***************************************************************************************************************
 
-// TODO: Remove twurple from project and implement functionality manually
-
 import express from 'express'
 
 // twurple library imports
@@ -42,11 +40,15 @@ export async function connect(router: express.Router) {
 
 	// Create a refreshing auth provider and use it to create the api client. This auth provider already contains the tokens
 	// for all Twitch users we want to support, and will handle refreshing them and updating the database with new token data as needed.
+
+	// TODO: Remove auth provider code and ensure maintained functionality. We already have token retrieval and refresh implemented.
 	const authProvider = await createAuthProvider()
 	if(!authProvider) {
 		console.error("Failed to create Twitch auth provider. EventSub client will not connect.")
 		return
 	}
+
+	// TODO: Handle API requests manually! Should not be difficult. Get practice forming HttP requests.
 	const apiclient = new ApiClient({
 		"authProvider": authProvider
 	})
