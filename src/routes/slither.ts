@@ -8,7 +8,7 @@ import { SlitherControllerClientWebSocket } from '../classes/slitherws.js'
 
 import type { TwitchAuthCodeRequest } from '../types/authtypes.js'
 import { registerOrLoginSlitherUser, signSlitherToken, verifySlitherToken, refreshSlitherAccessToken, addSlitherTokenCookie, verifyAlertsConnectionToken } from '../services/slitherauth.js'
-import { registerTwitchUser, oauthStateOrParamProblem, fetchTwitchUserAccessToken, validateTokenAndGetUserID } from '../services/twitchauth.js'
+import { registerTwitchUser, oauthStateOrParamProblem, fetchUserAccessToken, validateUserAccessToken } from '../services/twitchauth.js'
 import { AlertMessage } from '../types/slitherwstypes.js'
 
 const AUTH_REDIRECT_URI = new URL(`https://${sslConfig.hostName}/slither/oauth`)
@@ -41,7 +41,7 @@ import { getAlertsTokenForUser, getUserIDForRefreshToken } from '../db/queries/s
  * This method must call the appropriate channel point reward
  **/
 // TODO: Implement /event endpoint to process twitch event messages in a more general manner than the endpoint above
-router.post('/event/:twitcheventparam', rawParser, async (req, res) => {
+router.post('/event', rawParser, async (req, res) => {
 
 	if(!verifyEventMessage(req)) {
 		console.log(`Received unverified event message with request URL: ${req.url}`)
@@ -62,7 +62,7 @@ router.post('/event/:twitcheventparam', rawParser, async (req, res) => {
 	try { req.body = JSON.parse(req.body) }
 	catch(e) { 
 		// TODO: Elevate log as Twitch has changed or added something I need to know about
-		console.log('Error parsing req.body as JSON: ', e)
+		console.error('Error parsing req.body as JSON: ', e)
 		res.sendStatus(204)
 	}
 
@@ -90,8 +90,6 @@ router.post('/event/:twitcheventparam', rawParser, async (req, res) => {
 		if(req.body.subscription.type !== 'channel.channel_points_custom_reward_redemption.add') {
 			return res.sendStatus(204)
 		}
-
-		console.log(`Reward redeemed. Request body: ${JSON.stringify(req.body)}`)
 
 		// respond with 204 No Content...
 		res.sendStatus(204)
@@ -253,7 +251,7 @@ router.get('/auth', async (req, res) => {
 // We should use the fetch() API to send this auth code to Twitch's OAuth system after which we will receive the
 // User Access Token in the body of a response. Insert or update the token into the database to allow the user
 // to use this app's features. Then we rediret the user to SlitherBot's home page.
-router.get('/oauth', async (req, res) => {
+router.get('/oauth', jsonParser, async (req, res) => {
 
 	// Validates the params of the request, including state, and removes the state from the array if state is valid.
 	// Return true and sets the params of the res object if it identifies any problem.
@@ -262,11 +260,11 @@ router.get('/oauth', async (req, res) => {
 	// We have received an Authorization Code from Twitch that we can use to obtain a User Access Token for a user wanting to use
 	// SlitherBot. We can send our response to Twitch. POST the auth code to https://id.twitch.tv/oauth2/token with query params:
 	// { client_id, client_secret, code, grant_type, redirect_uri }
-	const twitchTokenData = await fetchTwitchUserAccessToken(req)
+	const twitchTokenData = await fetchUserAccessToken(req.query.code as string)
     const obtainmentTimestamp = Date.now()
 
 	// Immediately validate the access token to get the userID from Twitch
-	const twitchUserID = await validateTokenAndGetUserID(twitchTokenData.access_token)
+	const twitchUserID = await validateUserAccessToken(twitchTokenData.access_token)
 	if(!twitchUserID) return res.status(500).end()
 
 	// Everything seems in order. Store the token in our database and register the user for the SlitherBot application in general.

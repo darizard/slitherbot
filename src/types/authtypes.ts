@@ -6,7 +6,21 @@ export type SlitherNewUser = {
     alerts_token: string
 }
 
-export type TwitchAuthTokenValidationResponse = {
+export type TwitchAuthAppTokenValidationResponse = {
+    client_id: string
+    scopes: null
+    expires_in: number
+}
+
+export function isTwitchAuthAppTokenValidationResponse(obj: any): obj is TwitchAuthAppTokenValidationResponse {
+    return (
+        typeof obj.client_id === 'string'
+        && obj.scopes === null
+        && typeof obj.expires_in === 'number'
+    )
+}
+
+export type TwitchAuthUserTokenValidationResponse = {
     client_id: string
     login: string
     user_id: string
@@ -14,14 +28,14 @@ export type TwitchAuthTokenValidationResponse = {
     scopes: string[]
 }
 
-export function isTwitchAuthTokenValidationResponse(obj: TwitchAuthTokenValidationResponse): obj is TwitchAuthTokenValidationResponse {
+export function isTwitchAuthUserTokenValidationResponse(obj: any): obj is TwitchAuthUserTokenValidationResponse {
     return (
         typeof obj.client_id === 'string'
         && typeof obj.login === 'string'
         && typeof obj.user_id === 'string'
         && typeof obj.expires_in === 'number'
         && Array.isArray(obj.scopes)
-        && obj.scopes.every(item => typeof item === 'string')
+        && obj.scopes.every((item: string) => typeof item === 'string')
     )
 }
 
@@ -30,7 +44,8 @@ export type TwitchAuthTokenValidationErrorResponse = {
     message: string
 }
 
-export function isTwitchAuthTokenValidationErrorResponse(obj: TwitchAuthTokenValidationErrorResponse): obj is TwitchAuthTokenValidationErrorResponse {
+export function isTwitchAuthTokenValidationErrorResponse(obj: TwitchAuthTokenValidationErrorResponse | undefined): obj is TwitchAuthTokenValidationErrorResponse {
+    if(!obj) return false
     return (
         obj.message.toLowerCase() === 'invalid access token'
         && obj.status === 401
@@ -122,6 +137,22 @@ export function isTwitchAuthCode(obj: TwitchAuthCode): obj is TwitchAuthCode {
     )
 }
 
+export type TwitchAuthAppToken = {
+    access_token: string
+    expires_in: number
+    token_type: 'bearer'
+}
+
+export function isTwitchAuthAppToken(obj: any): obj is TwitchAuthAppToken {
+    if(!obj) return false
+    
+    return (
+        typeof obj.access_token === 'string'
+        && typeof obj.expires_in === 'number'
+        && obj.token_type === 'bearer'
+    )    
+}
+
 export type TwitchAuthUserToken = {
     access_token: string
     expires_in: number
@@ -137,6 +168,7 @@ export function isTwitchAuthUserToken(obj: TwitchAuthUserToken): obj is TwitchAu
         && typeof obj.refresh_token === 'string'
         && Array.isArray(obj.scope)
         && obj.scope.every(item => typeof item === 'string')
+        && obj.token_type === 'bearer'
     )
 }
 

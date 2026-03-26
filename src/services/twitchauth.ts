@@ -4,76 +4,75 @@
 
 import crypto from 'crypto'
 import type { Request, Response } from 'express'
-import { RefreshingAuthProvider } from "@twurple/auth"
 import { Insertable, InsertResult } from 'kysely'
 import { DB } from "kysely-codegen"
-import twitchsql from '../db/queries/twitchauth.js'
+import twitchsql, { updateSlitherAppToken } from '../db/queries/twitchauth.js'
 import { twitch as twitchConfig, ssl as sslConfig } from "../config.js"
-import type { TwitchAuthTokenValidationResponse, TwitchAuthTokenValidationErrorResponse, TwitchRefreshUserTokenRequest, TwitchRefreshUserTokenResponse, TwitchAuthError, TwitchAuthCode, TwitchAuthUserTokenRequest, TwitchAuthUserToken } from "../types/authtypes.js"
-import { isTwitchAuthTokenValidationResponse, isTwitchAuthTokenValidationErrorResponse, isTwitchRefreshUserTokenResponse, isTwitchAuthError, isTwitchAuthCode, isTwitchAuthUserToken } from "../types/authtypes.js"
+import type { TwitchAuthUserTokenValidationResponse, TwitchAuthTokenValidationErrorResponse, TwitchRefreshUserTokenRequest, TwitchRefreshUserTokenResponse, 
+              TwitchAuthError, TwitchAuthCode, TwitchAuthUserTokenRequest, TwitchAuthUserToken, TwitchAuthAppToken, TwitchAuthAppTokenValidationResponse } from "../types/authtypes.js"
+import { isTwitchAuthUserTokenValidationResponse, isTwitchAuthTokenValidationErrorResponse, isTwitchRefreshUserTokenResponse, isTwitchAuthError, isTwitchAuthCode, 
+         isTwitchAuthUserToken, isTwitchAuthAppToken, isTwitchAuthAppTokenValidationResponse } from "../types/authtypes.js"
 
-// TODO: Remove Twurple from project
-/*
- * Returns a RefreshingAuthProvider that contains token and scope information for all users connecting to the service.
- * This object also listens for events related to token refreshing. It is currently unclear whether these callbacks will
- * fire when the refresh events actually happen as there is some configuration conflict between the middleware using it
- * and the Apache web server's reverse proxy. Investigate further if any situations arise.
- */
-export async function createAuthProvider() {
+export async function getValidatedSlitherAppToken(): Promise<string | undefined> {
 
-    // Establish RefreshingAuthProvider using twitch app credentials
-    const authProvider = new RefreshingAuthProvider({
-        // Client id and secret of registered Twitch App (https://dev.twitch.tv/console/apps)
-        "clientId": twitchConfig.clientId,
-        "clientSecret": twitchConfig.clientSecret
-    })
+    // If our app access token exists in db, retrieve and validate it
+    let appToken: string | undefined = await twitchsql.getSlitherAppToken()
 
-    // Set up token refresh event listeners
-    authProvider.onRefresh(async (userId, newTokenData) => {
+    // Return the token from the DB if it can be validated by Twitch (does not attempt to validate if undefined)
+    if(appToken && await validateAppAccessToken(appToken)) return appToken
 
-        console.log(`DB: Refreshed access token data for Twitch user ${userId}`)
+    // If not valid, get a new one and immediately validate it, then return it
+    appToken = await obtainNewAppAccessToken()
+    appToken = await validateAppAccessToken(appToken)
+    if(appToken) return appToken
 
-        const refreshedUser = {
-            channel_id: userId,
-            access_token: newTokenData.accessToken,
-            refresh_token: newTokenData.refreshToken || '',
-            scopes: JSON.stringify(newTokenData.scope),
-            expires_in: newTokenData.expiresIn || -1,
-            obtainment_timestamp: newTokenData.obtainmentTimestamp
-        }
+    // Something went wrong...
+    console.log(`Unable to get an app token. Investigate.`)
+    return undefined
 
-        await twitchsql.upsertUsers(refreshedUser).then(() => {
-            console.log(`DB: Successfully updated access token data for Twitch user ${userId}`)
-        }).catch((error) => {
-            console.error(`DB: Error updating access token data in database for Twitch user ${userId}: ${error}`)
-        })
+}
 
-    })
+export async function obtainNewAppAccessToken(): Promise<string | undefined> {
 
-    authProvider.onRefreshFailure(async (userId, error) => {
+    const appToken = await fetch(`https://id.twitch.tv/oauth2/token`, {
+        method: 'POST',
+        body: new URLSearchParams({ client_id: twitchConfig.clientId,
+                                    client_secret: twitchConfig.clientSecret,
+                                    grant_type: 'client_credentials'})
+    }).then(async (res) => {
 
-        await clearTwitchUserAccessTokens(userId).then(() => {
-            console.log(`DB: Successfully invalidated access token for Twitch user ${userId} after refresh failure, error: ${error.name} - ${error.message}`)
-            authProvider.removeUser(userId)
-        }).catch((error) => {
-            console.error(`DB: Error invalidating access token data for Twitch user ${userId}: ${error}`)
-        })
-
-    })
-
-    const activeUsers = await twitchsql.getActiveTokenUsers()
-    for(let activeUser of activeUsers) {
+        if(!res.ok) return undefined
+        const appTokenFetchResult = await res.json()
+        return appTokenFetchResult
         
-        const userToAdd = { accessToken: activeUser.access_token, 
-                                scope: activeUser.scopes as string[],
-                                refreshToken: activeUser.refresh_token,
-                                expiresIn: activeUser.expires_in,
-                                obtainmentTimestamp: activeUser.obtainment_timestamp }
+    })
 
-        authProvider.addUser(activeUser.channel_id, userToAdd)
-    }
+    const tokenUpdateResult = await updateSlitherAppToken(appToken)
+    if(tokenUpdateResult.numChangedRows && tokenUpdateResult.numChangedRows > 0n) return appToken?.access_token
+    return
 
-    return authProvider
+}
+
+export async function validateAppAccessToken(appToken: string | undefined): Promise<string | undefined> {
+
+    const appTokenInfo = await fetch(new Request(`https://id.twitch.tv/oauth2/validate`, { method: 'GET',
+                                                                                        headers: {
+                                                                                            Authorization: `OAuth ${appToken}`
+                                                                                        }
+    })).then(async (res) => {
+
+        const validationResponse = await res.json()
+        if(res.ok) return validationResponse as TwitchAuthAppTokenValidationResponse
+        console.log(`Validation response not ok: ${JSON.stringify(validationResponse)}`)
+        return validationResponse as TwitchAuthTokenValidationErrorResponse
+
+    })
+
+    if(isTwitchAuthAppTokenValidationResponse(appTokenInfo)) return appToken
+    if(isTwitchAuthTokenValidationErrorResponse(appTokenInfo)) return
+
+    console.log(`Unexpected response received from Twitch Auth Token Validation endpoint: ${JSON.stringify(appTokenInfo)}`)
+
 }
 
 /*
@@ -121,7 +120,7 @@ export async function validateAndRefreshUserAccessTokens(tokens: string | string
             )).then(async (res) => {
 
                 const twitchResponse = await res.json()
-                if(isTwitchAuthTokenValidationResponse(twitchResponse as TwitchAuthTokenValidationResponse)) { 
+                if(isTwitchAuthUserTokenValidationResponse(twitchResponse as TwitchAuthUserTokenValidationResponse)) { 
                     return 
                 }
                 else if(isTwitchAuthTokenValidationErrorResponse(twitchResponse as TwitchAuthTokenValidationErrorResponse)) {
@@ -269,11 +268,11 @@ export async function oauthStateOrParamProblem(auth_states: Set<string>, req: Re
     return false
 }
 
-export async function fetchTwitchUserAccessToken(req: Request): Promise<TwitchAuthUserToken> {
+export async function fetchUserAccessToken(code: string): Promise<TwitchAuthUserToken> {
     const tokenRequest: TwitchAuthUserTokenRequest = {
         client_id: `${twitchConfig.clientId}`,
         client_secret: `${twitchConfig.clientSecret}`,
-        code: `${req.query.code}`,
+        code: `${code}`,
         grant_type: 'authorization_code',
         redirect_uri: `https://${sslConfig.hostName}/slither/oauth`
     }
@@ -286,7 +285,7 @@ export async function fetchTwitchUserAccessToken(req: Request): Promise<TwitchAu
     return await twitchTokenResponse.json() as TwitchAuthUserToken
 }
 
-export async function validateTokenAndGetUserID(access_token: string): Promise<string | undefined> {
+export async function validateUserAccessToken(access_token: string): Promise<string | undefined> {
 
     return await fetch(`https://id.twitch.tv/oauth2/validate`,
                                 { method: 'GET',

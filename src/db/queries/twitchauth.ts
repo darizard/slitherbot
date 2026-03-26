@@ -1,11 +1,31 @@
-import { Selectable, Insertable, Updateable, InsertResult, sql } from 'kysely'
+import { Selectable, Insertable, Updateable, InsertResult, sql, UpdateResult } from 'kysely'
 import { DB } from 'kysely-codegen'
 import { db } from '../database.js'
 import { jsonArrayFrom } from 'kysely/helpers/mysql'
+import { TwitchAuthAppToken } from '../../types/authtypes.js'
 
 /************************************
  * Twitch-Auth-Related database queries
  ************************************/
+
+export async function getSlitherAppToken(): Promise<string | undefined> {
+
+    return (await db.selectFrom('AppInfo')
+        .select('app_access_token')
+        .executeTakeFirst())?.app_access_token
+
+}
+
+export async function updateSlitherAppToken(token: TwitchAuthAppToken): Promise<UpdateResult> {
+
+    return await db.updateTable('AppInfo')
+        .set({ app_access_token: token.access_token,
+               expires_in: token.expires_in,
+               obtainment_timestamp: Date.now()
+         })
+        .executeTakeFirst()
+
+}
 
 // Get all db info on users who have authenticated with this app
 export async function getActiveTokenUsers(): Promise<Selectable<DB['Users']>[]> {

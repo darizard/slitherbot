@@ -12,15 +12,10 @@
 // ***************************************************************************************************************
 // ***************************************************************************************************************
 
-import express from 'express'
-
-// twurple library imports
-import { ApiClient } from '@twurple/api'
-import { EventSubMiddleware } from '@twurple/eventsub-http'
-
 // internal app imports
-import { createAuthProvider } from './twitchauth.js'
-import { twitch as twitchBotConfig, ssl as sslConfig } from '../config.js'
+import { getValidatedSlitherAppToken } from './twitchauth.js'
+import { twitch as twitchConfig, ssl as sslConfig } from '../config.js'
+import type { CreateSubscriptionRequest, CreateSubscriptionSuccessResponse, EventSubSubscription } from '../types/eventsubtypes.js'
 
 // removed imports - reminder to implement these more completely in other apps on the server
 // import { setMic1Mute as setMuteOBS } from './obsclient.js';
@@ -28,84 +23,118 @@ import { twitch as twitchBotConfig, ssl as sslConfig } from '../config.js'
 
 export * as default from './eventsubclient.js'
 
+let APP_TOKEN: string | undefined
+
 /*************************************************************************
- * Connects to Twitch's EventSub system using a RefreshingAuthProvider
- * 
- * Uses a ReverseProxyAdapter to receive messages on port 3000 fowarded
- * from the reverse proxy configured on the local server
- * 
- * EventSub will only send http requests directly to port 443
+ * Establishes a Twitch App Access Token for SlitherBot and maintains EventSub
+ * Subscriptions
  *************************************************************************/
-export async function connect(router: express.Router) {
+export async function initialize() {
 
-	// Create a refreshing auth provider and use it to create the api client. This auth provider already contains the tokens
-	// for all Twitch users we want to support, and will handle refreshing them and updating the database with new token data as needed.
-
-	// TODO: Remove auth provider code and ensure maintained functionality. We already have token retrieval and refresh implemented.
-	const authProvider = await createAuthProvider()
-	if(!authProvider) {
-		console.error("Failed to create Twitch auth provider. EventSub client will not connect.")
+	APP_TOKEN = await getValidatedSlitherAppToken()
+	if(!APP_TOKEN) {
+		console.error(`Failed to obtain an app access token on initial connection. Unable to manage EventSub subscriptions.`)
 		return
 	}
 
-	// TODO: Handle API requests manually! Should not be difficult. Get practice forming HttP requests.
-	const apiclient = new ApiClient({
-		"authProvider": authProvider
-	})
+	const allSubs = await getEventSubSubscriptions()
+	if(!allSubs) {
 
-	const middleware = new EventSubMiddleware({
-		"hostName": sslConfig.hostName,
-		"apiClient": apiclient,
-		"secret": twitchBotConfig.eventsubSecret,
-		"pathPrefix": "/slither",
-		"usePathPrefixInHandlers": false
-	})
+		// TODO: If this happens we're in a weird spot. Elevate error.
+		console.error(`Failed to obtain subscriptions from Twitch on app startup. Unable to manage EventSubsubscriptions`)
+		return
 
-	// TODO: This initial subscription retrieval is fully an artifact of the initial testing phase. We will want to do some
-	// subscription management in the future, but I will need to determine the details once database retrieval is working.
-	let subs = await apiclient.eventSub.getSubscriptions()
-	for(let sub of subs.data) {
-		if(sub.status !== 'enabled') sub.unsubscribe()
-		//await sub.unsubscribe() // Unsubscribe from all existing EventSub subscriptions as a testing measure.
 	}
-	
-	// I want to apply the middleware to my Twitch subrouter.
-	/* Confession: I asked AI to help me with this one because sometimes TypeScript is still over my head with its minutiae.
-	 * The express-serve-static-core IRouter implementations differ between the versions in the express package and the twurple
-	 * package, so I am using a helper function to remove the type from the equation, but for this one line of code only.
-	 * The router object will still have the express.Router type outside of this helper function. */
-	((middleware: EventSubMiddleware, router: any): void => {
-		middleware.apply(router)
-	})(middleware, router)
-	
-	await middleware.markAsReady()
 
-	// ============="EVENTS" as defined by Twurple's EventSubMiddleware=============
-	middleware.onRevoke(((subscription, status) => {
-		console.log(`Subscription with id ${subscription.id} was revoked by Twitch with status ${status}.`)
-	}))
-	middleware.onSubscriptionCreateFailure((subscription, error) => { 
-		console.log(`Failed to create subscription with error ${error.name}: ${error.message}`)
-	})
-	middleware.onSubscriptionCreateSuccess((subscription, apiSubscription) => {
-		console.log(`Successfully created subscription with cost: ${JSON.stringify(apiSubscription.cost)}`)
-	})
-	middleware.onSubscriptionDeleteSuccess((subscription) => {
-		console.log(`Successfully deleted subscription: ${JSON.stringify(subscription)}`)
-	})
-	middleware.onSubscriptionDeleteFailure((subscription, error) => {
-		console.log(`Failed to delete subscription with error ${error.name}: ${error.message}`)
-	})
-	middleware.onVerify((success, subscription) => {
-		console.log(`Verification ${success ? "succeeded" : "failed"} for ${JSON.stringify(subscription)}`)
+
+}
+
+async function getEventSubSubscriptions(): Promise<EventSubSubscription[] | undefined> {
+
+	APP_TOKEN = await getValidatedSlitherAppToken()
+
+	const allSubs = await fetch(`https://api.twitch.tv/helix/eventsub/subscriptions`, { method: 'GET',
+																		headers: {
+																			Authorization: `Bearer ${APP_TOKEN}`,
+																			'Client-Id': twitchConfig.clientId
+																		}
+																	})
+	.then(async (res) => {
+
+		if(res.ok) return (await res.json()).data as EventSubSubscription[]
+		return undefined
+
 	})
 
-	// ============="METHODS" as defined by Twurple's EventSubMiddleware=============
+	allSubs?.forEach(async (sub) => {
 
-	// TODO: Update along with user-specific logic and removing twurple from the project
-	let dariID: string = "123657070"
+		const status = sub.status.toLowerCase()
+		// TODO: Check status on every sub we have and delete disabled ones. For now, check everything is working
+		if(sub.status !== 'enabled' && await unsubscribeFromEvent(sub)) {
 
-	middleware.onChannelRedemptionAdd(dariID, (event) => {
-		console.log(`onChannelRedemptionAdd fired for event: ${JSON.stringify(event)}`)
+			console.log(await subscribeToEvent({
+				type: sub.type,
+				version: sub.version,
+				condition: { broadcaster_user_id: sub.condition.broadcaster_user_id },
+				transport: {
+					method: 'webhook',
+					callback: `https://${sslConfig.hostName}/slither/event`,
+					secret: twitchConfig.eventsubSecret
+				}
+			}))
+		}
 	})
+
+	return allSubs
+
+}
+
+async function unsubscribeFromEvent(subscription: EventSubSubscription): Promise<boolean> {
+
+	APP_TOKEN = await getValidatedSlitherAppToken()
+
+	return await fetch(`https://api.twitch.tv/helix/eventsub/subscriptions?id=${subscription.id}`, { method: 'DELETE',
+																									 headers: {
+																										Authorization: `Bearer ${APP_TOKEN}`,
+																										'Client-Id': twitchConfig.clientId
+																									 }
+																							})
+	.then(async (res) => {
+		
+		// TODO: Include in error log elevation. Something is wrong if we have a subscription ID we can't delete
+		if(!res.ok) {
+			console.error(	`Unsuccessful deletion of subscription type ${subscription.type}, `,
+						  	`authorizer object: ${JSON.stringify(subscription.condition)} `,
+						  	`error code ${res.status}`)
+		} else {
+			console.log(`Successfully deleted subscription id ${subscription.id}`)
+		}
+
+		return res.ok
+
+	})
+
+}
+
+async function subscribeToEvent(request: CreateSubscriptionRequest): Promise<CreateSubscriptionSuccessResponse | undefined> {
+
+	APP_TOKEN = await getValidatedSlitherAppToken()
+
+	return await fetch(`https://api.twitch.tv/helix/eventsub/subscriptions`, {
+		method: 'POST',
+		headers: {
+			'Authorization': `Bearer ${APP_TOKEN}`,
+			'Client-Id': twitchConfig.clientId,
+			'Content-Type': 'application/json',
+		},
+		body: JSON.stringify(request)
+	}).then(async (res) => {
+
+		const subscribeResult = await res.json()
+		if(res.ok) return subscribeResult
+		console.log(`Subscribing to event of type ${request.type} failed. Response object: ${JSON.stringify(subscribeResult)}`)
+		return undefined
+
+	})
+
 }

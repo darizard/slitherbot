@@ -28,7 +28,7 @@ wsserver.init(httpServer)
 httpServer.listen(8080, async () => {
 
 	console.log('HTTPS Server running on port 8080')
-	await eventsubclient.connect(slitherRouter)
+	await eventsubclient.initialize()
 	runServices()
 
 })
