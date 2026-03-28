@@ -1,4 +1,4 @@
-import { Selectable, Insertable, Updateable, InsertResult, sql } from 'kysely'
+import { Selectable, Insertable, Updateable, InsertResult, UpdateResult, sql } from 'kysely'
 import { QueryError } from 'mysql2'
 import { DB } from 'kysely-codegen'
 import { db } from '../database.js'
@@ -22,9 +22,10 @@ export async function upsertSlitherTokensForUser(twitchId: string, alertsToken: 
     try {
 
         return await db.insertInto('SlitherIDs')
-            .values({ twitch_id: twitchId, alerts_token: alertsToken})
+            .values({ twitch_id: twitchId, alerts_token: alertsToken, require_login: 0})
             .onDuplicateKeyUpdate({
-                alerts_token: alertsToken
+                alerts_token: alertsToken,
+                require_login: 0
             })
             .executeTakeFirst()
 
@@ -59,6 +60,24 @@ export async function getUserIDForAlertsToken(paramToken: string): Promise<strin
             .where('alerts_token', '=', paramToken)
             .executeTakeFirst())
                 ?.twitch_id
+
+}
+
+export async function requiresLogin(userId: string | undefined): Promise<boolean> {
+
+    return (await db.selectFrom('SlitherIDs')
+                    .select('require_login')
+                    .where('twitch_id', '=', userId ?? '')
+                    .executeTakeFirst())?.require_login === 1 ? true : false
+
+}
+
+export async function requireLogin(twitchId: string, required: boolean): Promise<UpdateResult> {
+
+    return await db.updateTable('SlitherIDs')
+                    .set('require_login', required ? 1 : 0)
+                    .where('twitch_id', '=', twitchId)
+                    .executeTakeFirst()
 
 }
 

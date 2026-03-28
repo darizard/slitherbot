@@ -19,7 +19,7 @@ import { registerTwitchUser, oauthStateOrParamProblem, fetchUserAccessToken, val
 import { eventSubScopes } from '../services/eventsubclient.js'
 
 // Direct DB queries
-import { getAlertsTokenForUser } from '../db/queries/slitherauth.js'
+import { getAlertsTokenForUser, requiresLogin, requireLogin } from '../db/queries/slitherauth.js'
 
 const AUTH_REDIRECT_URI = new URL(`https://${sslConfig.hostName}/slither/oauth`)
 const AUTH_STATES = new Set<string>
@@ -291,10 +291,11 @@ router.get('/oauth', jsonParser, async (req, res) => {
 
 	// To this point, we have acquired Twitch tokens for the given user. We need to add or update the Slither refresh token
 	// in the user's browser cookies
-	const signedRefreshToken = await registerOrLoginSlitherUser(twitchUserID)
-	if(!signedRefreshToken) return res.sendStatus(500)
+	if(await registerOrLoginSlitherUser(twitchUserID) === undefined) return res.sendStatus(500)
+	const signedRefreshToken = await signSlitherToken(twitchUserID, 'refresh')
 	const signedAccessToken = await signSlitherToken(twitchUserID, 'access')
 
+	await requireLogin(twitchUserID, false)
 	addSlitherTokenCookie(res, signedRefreshToken, 'refresh')
 	addSlitherTokenCookie(res, signedAccessToken, 'access')
 
@@ -306,20 +307,31 @@ router.get('/home', async (req, res) => {
 
 	let navItems: { label: string, href: string }[] = []
 
-	let userId = await verifySlitherToken(req.cookies?.access_token, 'access')
-	if(!userId) {
+	let twitchId = await verifySlitherToken(req.cookies?.access_token, 'access')
+
+	if(await requiresLogin(twitchId)) {
+
+		res.clearCookie('access_token')
+		res.clearCookie('refresh_token')
+		return res.redirect(`/slither/auth`)
+
+	}
+
+	if(!twitchId) {
 		const refreshResult = await refreshSlitherAccessToken(req.cookies?.refresh_token)
 		if(!refreshResult || !refreshResult.accessToken) return res.redirect(`/slither/auth`)
 
+
+
 		addSlitherTokenCookie(res, refreshResult.accessToken, 'access')
 
-		userId = refreshResult.userId
+		twitchId = refreshResult.userId
 
 	}
 
 	navItems.push({href: `/slither/logout`, label: 'Logout'})
 
-	const alertsToken = await getAlertsTokenForUser(userId)
+	const alertsToken = await getAlertsTokenForUser(twitchId)
 	const alertsUrl = alertsToken ? `https://${sslConfig.hostName}/slither/alerts/${alertsToken}` : ''
 
 	res.render(`slither/home`, {
