@@ -17,7 +17,7 @@ export async function getUserIDForRefreshToken(refreshToken: string): Promise<st
 // On a duplicate alerts_token error, returns the MySQL QueryError error code (1062).
 // On any other MySQL QueryError code, returns -1
 // Returns a kysely InsertResult otherwise
-export async function upsertSlitherTokensForUser(twitchId: string, alertsToken: string): Promise<InsertResult | number> {
+export async function upsertSlitherUser(twitchId: string, alertsToken: string): Promise<InsertResult | number> {
 
     try {
 

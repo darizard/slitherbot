@@ -11,11 +11,12 @@ import { SlitherControllerClientWebSocket } from '../classes/slitherws.js'
 
 // Internal types
 import type { TwitchAuthCodeRequest } from '../types/authtypes.js'
+import { isTwitchAuthError, isTwitchAuthCode } from '../types/authtypes.js'
 import type { AlertMessage } from '../types/slitherwstypes.js'
 
 // Internal logic modules
-import { registerOrLoginSlitherUser, signSlitherToken, verifySlitherToken, refreshSlitherAccessToken, addSlitherTokenCookie, verifyAlertsConnectionToken } from '../services/slitherauth.js'
-import { registerTwitchUser, oauthStateOrParamProblem, fetchUserAccessToken, validateUserAccessToken, verifyEventMessage } from '../services/twitchauth.js'
+import { registerSlitherUser, signSlitherToken, verifySlitherToken, refreshSlitherAccessToken, addSlitherTokenCookie, verifyAlertsConnectionToken } from '../services/slitherauth.js'
+import { registerTwitchUser, fetchUserAccessToken, validateUserAccessToken, verifyEventMessage } from '../services/twitchauth.js'
 import { eventSubScopes } from '../services/eventsubclient.js'
 
 // Direct DB queries
@@ -267,10 +268,25 @@ router.get('/auth', async (req, res) => {
 // to use this app's features. Then we rediret the user to SlitherBot's home page.
 router.get('/oauth', jsonParser, async (req, res) => {
 
-	// Validates the params of the request, including state, and removes the state from the array if state is valid.
-	// Return true and sets the params of the res object if it identifies any problem.
-	if(await oauthStateOrParamProblem(AUTH_STATES, req, res)) return res.end()
-	
+	if(typeof req.query.state !== 'string' || !AUTH_STATES.has(req.query.state)) {
+		// TODO: Treat this error as a security risk and elevate the logging
+		console.log(`Received an auth code with an invalid or already used state value: ${req.query.state}. Rejecting request.`)
+		return res.sendStatus(400)
+	}
+	AUTH_STATES.delete(req.query.state)
+
+	if(isTwitchAuthError(req.query)) {
+		console.log(`OAuth Error received from Twitch: ${JSON.stringify(req.query)}`)
+		res.status(302)
+		res.location(`/slither/home`)
+		return res.end()
+	}
+
+	if(!isTwitchAuthCode(req.query)) {
+		console.log(`Received a call to GET /slither/oauth that was neither an error nor an auth code. Query: ${JSON.stringify(req.query)}`)
+		return res.sendStatus(400)
+	}
+
 	// We have received an Authorization Code from Twitch that we can use to obtain a User Access Token for a user wanting to use
 	// SlitherBot. We can send our response to Twitch. POST the auth code to https://id.twitch.tv/oauth2/token with query params:
 	// { client_id, client_secret, code, grant_type, redirect_uri }
@@ -281,23 +297,23 @@ router.get('/oauth', jsonParser, async (req, res) => {
 	const twitchUserID = await validateUserAccessToken(twitchTokenData.access_token)
 	if(!twitchUserID) return res.status(500).end()
 
-	// Everything seems in order. Store the token in our database and register the user for the SlitherBot application in general.
-	// Then, redirect the user. This also implicitly sends a 302 response to Twitch /thumbup.
-
 	// Store Twitch access tokens in the database. This function will print a log message to the console in case of a DB error.
 	// Also if we already have an old user access token, be a good client and send a revocation request to Twitch
 	// We have already received and validated the access tokens as part of the OAuth flow so in the event of an error, keep going.
 	await registerTwitchUser(twitchTokenData, twitchUserID, obtainmentTimestamp)
 
-	// To this point, we have acquired Twitch tokens for the given user. We need to add or update the Slither refresh token
-	// in the user's browser cookies
-	if(await registerOrLoginSlitherUser(twitchUserID) === undefined) return res.sendStatus(500)
+	// Now register the user with Slither. If the user's twitch ID is already mapped to an alerts token, treat this as a simple login
+	// and move on to issuing cookies
+	if((await registerSlitherUser(twitchUserID)) === null) return res.sendStatus(500)
+
+	// To this point, we have acquired Twitch tokens for the given user. Sign our Slither authentication tokens and issue cookies.
 	const signedRefreshToken = await signSlitherToken(twitchUserID, 'refresh')
 	const signedAccessToken = await signSlitherToken(twitchUserID, 'access')
-
-	await requireLogin(twitchUserID, false)
 	addSlitherTokenCookie(res, signedRefreshToken, 'refresh')
 	addSlitherTokenCookie(res, signedAccessToken, 'access')
+
+	// We have now sucessfully logged in the user. If we set the require_login flag in the DB, unset it now.
+	await requireLogin(twitchUserID, false)
 
 	return res.redirect(`/slither/home`)
 })

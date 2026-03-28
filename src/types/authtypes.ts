@@ -129,7 +129,7 @@ export type TwitchAuthCode = {
     state?: string
 }
 
-export function isTwitchAuthCode(obj: TwitchAuthCode): obj is TwitchAuthCode {
+export function isTwitchAuthCode(obj: any): obj is TwitchAuthCode {
     return (
         typeof obj.code === 'string'
         && typeof obj.scope === 'string'
@@ -178,7 +178,7 @@ export type TwitchAuthError = {
     state?: string
 }
 
-export function isTwitchAuthError(obj: TwitchAuthError): obj is TwitchAuthError {
+export function isTwitchAuthError(obj: any): obj is TwitchAuthError {
     return (
         typeof obj.error === 'string'
         && typeof obj.error_description === 'string'

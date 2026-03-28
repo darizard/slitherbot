@@ -239,35 +239,6 @@ export function verifyEventMessage(req: Request): boolean {
     }
 }
 
-// Used by the GET /slither/oauth route to validate state and the query params received from Twitch.
-// The function mutates the Response object
-export async function oauthStateOrParamProblem(auth_states: Set<string>, req: Request, res: Response): Promise<boolean> {
-    // Process a request with any given state only once
-    const state = req.query.state
-    if(typeof state !== 'string' || !auth_states.has(state)) {
-        // TODO: Treat this error as a security risk and elevate the logging
-        console.log(`Received an auth code with an invalid or already used state value: ${state}. Rejecting request.`)
-        res.status(400)
-        return true
-    }
-    auth_states.delete(state)
-
-    if(isTwitchAuthError(req.query as TwitchAuthError)) {
-        console.log(`OAuth Error received from Twitch: ${JSON.stringify(req.query)}`)
-        res.status(302)
-        res.location(`/slither/home`)
-        return true
-    }
-
-    if(!isTwitchAuthCode(req.query as TwitchAuthCode)) {
-        console.log(`Received a call to GET /slither/oauth that was neither an error nor an auth code. Query: ${JSON.stringify(req.query)}`)
-        res.status(400)
-        return true
-    }
-
-    return false
-}
-
 export async function fetchUserAccessToken(code: string): Promise<TwitchAuthUserToken> {
     const tokenRequest: TwitchAuthUserTokenRequest = {
         client_id: `${twitchConfig.clientId}`,

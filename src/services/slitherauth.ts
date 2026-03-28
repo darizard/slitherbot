@@ -28,27 +28,27 @@ export async function refreshSlitherAccessToken(refreshToken: string): Promise<{
 // Called as a follow-up to a completed twitch User Access Token OAuth flow. Need to add the user
 // into the SlitherIDs table if necessary. Afterward, return a JWT containing the payload argument 
 // signed with the secret from jwtConfig
-export async function registerOrLoginSlitherUser(userId: string): Promise<void | undefined> {
+export async function registerSlitherUser(userId: string): Promise<void | null> {
 
     if(!await slithersql.getAlertsTokenForUser(userId))
     {
         const alertsToken = generateSecret()
-        let upsertResult = await slithersql.upsertSlitherTokensForUser(userId, alertsToken)
+        let upsertResult = await slithersql.upsertSlitherUser(userId, alertsToken)
 
         // in case of a collision, try again with a small delay
         if(upsertResult === 1062) {
             setTimeout(async () => {
-                upsertResult = await slithersql.upsertSlitherTokensForUser(userId, alertsToken)
+                upsertResult = await slithersql.upsertSlitherUser(userId, alertsToken)
             }, 250)
         }
 
         if(upsertResult === 1062) {
             console.error(`Alerts token collision error on slither user upsert attempt during registration or login`)
-            return undefined
+            return null
         } 
         if(!upsertResult) {
             console.error(`Error upserting new alerts token into slither auth table for user ${userId}`)
-            return undefined
+            return null
         }
     }
 }
