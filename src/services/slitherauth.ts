@@ -75,6 +75,7 @@ export async function signSlitherToken(userId: string, tokenType: SlitherTokenTy
 
     return await new SignJWT({ user_id: userId, token_type: tokenType})
                     .setProtectedHeader({alg: 'HS256'})
+                    .setIssuedAt()
                     .setExpirationTime(maxAge)
                     .sign(secret)
 

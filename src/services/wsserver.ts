@@ -55,17 +55,17 @@ export function init(server: httpsServer) {
         
         // Validate the client type and authenticate the connection. If everything is in order, 
         switch(clientType) {
-            case 'alerts':
 
-                // TODO: Validate provided token and establish a user-specific connection.
-                
+            case 'alerts':
                 const userId = await (async () => {
-                    try {
-                        return await verifySlitherToken(urlQuery['token'] as string, 'alerts')
-                    } catch (err) {
+                    try { return await verifySlitherToken(urlQuery['token'] as string, 'alerts') }
+                    catch (err) {
+
                         console.log(`Error during verification of alerts connection token. Investigate request: ${JSON.stringify(request.url?.toString())}`)
+                        ws.removeAllListeners()
                         ws.close()
                         return
+
                     }
                 })()
 
@@ -73,12 +73,12 @@ export function init(server: httpsServer) {
 
                 const alertsServerSocket = new SlitherAlertsServerWebSocket(userId)
 
-                try {
-                    alertsServerSocket.connect(ws)
-                } catch (err) {
+                try { alertsServerSocket.connect(ws) }
+                catch (err) {
+
                     console.error(`Error connecting server-side alerts socket wrapper: ${JSON.stringify(err)}`)
-                    ws.removeAllListeners()
                     ws.close(1011)
+
                 }
 
                 alertsServerWebSockets.add(alertsServerSocket)
@@ -92,39 +92,46 @@ export function init(server: httpsServer) {
                 // callbacks the server wants to apply into the instances of these wrappers
                 break
 
-            case 'controller':
-            
+            case 'controller':            
                 // Kill connection if the token from the connection url params cannot be verified 
                 try {
+                    
                     const secret = new TextEncoder().encode(wsConfig.controllerSecret)
                     const jwtVerificationResult = await jwtVerify(urlQuery['token'] as string, secret)
                     const { userId, clientType } = jwtVerificationResult.payload
-                    if(userId !== 'controller' || clientType != 'controller' || Object.keys(jwtVerificationResult.payload).length !== 2) {
+                    if(userId !== 'controller' || clientType != 'controller' || Object.keys(jwtVerificationResult.payload).indexOf('iat') === -1
+                                               || Object.keys(jwtVerificationResult.payload).length !== 3) {
+
                         // TODO: Elevate logging as this could represent a security problem
                         console.error(`Verified WebSocket controller connection received without valid payload. `,
                                       `Investigate request: ${JSON.stringify(request.url?.toString())}`)
+                        console.error(`Payload: ${JSON.stringify(jwtVerificationResult.payload)}`)
                         return
+
                     }
 
                 } catch (err) {
+
                     console.log(`Error during verification of controller connection token. Investigate request: ${JSON.stringify(request.url?.toString())}`)
+                    ws.removeAllListeners()
                     ws.close()
                     return
+
                 }
 
                 // Inject the incoming WebSocket connection into the Controller Server Socket wrapper
-                try {
-                    controllerServerSocket.connect(ws)
-                } catch(err) {
+                try { controllerServerSocket.connect(ws) }
+                catch(err) {
+
                     console.error(`Error connecting server-side controller socket wrapper: ${JSON.stringify(err)}`)
                     ws.removeAllListeners()
                     ws.close(1011)
+
                 } 
                 
                 break
 
             default:
-
                 console.log(`WebSocket connection with invalid client type '${clientType satisfies never}' `,
                             `has been rejected by the WebSocket Server.`)
                 return

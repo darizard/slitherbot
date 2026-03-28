@@ -255,7 +255,7 @@ export async function oauthStateOrParamProblem(auth_states: Set<string>, req: Re
     if(isTwitchAuthError(req.query as TwitchAuthError)) {
         console.log(`OAuth Error received from Twitch: ${JSON.stringify(req.query)}`)
         res.status(302)
-        res.location(`/slither/home?tokenType=null`)
+        res.location(`/slither/home`)
         return true
     }
 

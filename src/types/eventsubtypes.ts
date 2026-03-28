@@ -1,3 +1,8 @@
+import type { CreateSubscriptionCondition as ConditionFromBase, CreateSubscriptionTransport, EventNotificationTransport } from "./base/eventsub-base.js" // Conditions
+
+//**************EVENT NOTIFICATION HANDLING**************/
+
+//***BASE TYPES***/
 export type EventSubSubscription = {
 
     id: string
@@ -6,45 +11,36 @@ export type EventSubSubscription = {
     version: string
     cost: number
     created_at: string
-    condition: EventSubSubscriptionCondition
 
-    [key: string]: unknown
-
-}
-
-export type EventSubSubscriptionCondition = {
-
-    broadcaster_user_id?: string
-    moderator_user_id?: string
-    broadcaster_id?: string
-    user_id?: string
-    reward_id?: string
-
-    // unlikely to use these, but they are part of the Condition spec for some events
-    client_id?: string
-    conduit_id?: string
-    organization_id?: string
-    category_id?: string
-    campaign_id?: string
-    extension_client_id?: string
+    condition: Omit<CreateSubscriptionCondition, 'type'>
 
 }
 
-// Sent to Twitch as part of a subscription creation Request
-export type EventSubSubscriptionTransport = {
+export type EventSubEvent = {
 
-    method: 'webhook'
-    callback: string
-    secret?: string // defined for outgoing transports
+
 
 }
+
+//***SPECIFIC TYPES***/
+export type ChannelFollowEventNotification = EventSubSubscription & {
+
+    
+
+}
+
+
+//**************SUBSCRIPTION MANAGEMENT**************/
+
+
+export type CreateSubscriptionCondition = ConditionFromBase
 
 export type CreateSubscriptionRequest = {
 
     type: string
     version: string
-    condition: EventSubSubscriptionCondition
-    transport: EventSubSubscriptionTransport
+    condition: Omit<ConditionFromBase, 'type'>
+    transport: CreateSubscriptionTransport
 
 }
 
@@ -54,9 +50,9 @@ export type CreateSubscriptionSuccessResponse = {
     status: string
     type: string
     version: string
-    condition: EventSubSubscriptionCondition
+    condition: ConditionFromBase
     created_at: string
-    transport: EventSubSubscriptionTransport
+    transport: EventNotificationTransport
     cost: number
     total: number
     total_cost: number

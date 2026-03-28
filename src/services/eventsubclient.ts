@@ -25,6 +25,13 @@ export * as default from './eventsubclient.js'
 
 let APP_TOKEN: string | undefined
 
+const EVENT_REDIRECT_URI = `https://${sslConfig.hostName}/slither/event`
+
+// String array defining the scopes our User Access Tokens will request
+export const eventSubScopes = new Set<string>(['bits:read', 'channel:read:redemptions', 'channel:manage:redemptions', 'moderator:read:followers', 'channel:read:subscriptions', 
+						'moderator:read:shoutouts', 'moderator:manage:shoutouts', 'channel:read:hype_train', 'channel:read:predictions', 'channel:manage:predictions',
+						'channel:read:polls', 'channel:manage:polls', 'user:read:chat'])
+
 /*************************************************************************
  * Establishes a Twitch App Access Token for SlitherBot and maintains EventSub
  * Subscriptions
@@ -46,6 +53,7 @@ export async function initialize() {
 
 	}
 
+	console.log(`allSubs: ${JSON.stringify(allSubs)}`)
 
 }
 
@@ -75,10 +83,10 @@ async function getEventSubSubscriptions(): Promise<EventSubSubscription[] | unde
 			console.log(await subscribeToEvent({
 				type: sub.type,
 				version: sub.version,
-				condition: { broadcaster_user_id: sub.condition.broadcaster_user_id },
+				condition: sub.condition,
 				transport: {
 					method: 'webhook',
-					callback: `https://${sslConfig.hostName}/slither/event`,
+					callback: EVENT_REDIRECT_URI,
 					secret: twitchConfig.eventsubSecret
 				}
 			}))

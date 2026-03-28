@@ -1,23 +1,28 @@
+// External modules
 import express from 'express'
 import bodyParser from 'body-parser'
 import crypto from 'crypto'
 
-import { ssl as sslConfig, twitch as twitchConfig, ws as wsConfig } from '../config.js' // Needed in auth
+// .env configuration imports
+import { ssl as sslConfig, twitch as twitchConfig, ws as wsConfig } from '../config.js'
 
+// Internal abstraction classes
 import { SlitherControllerClientWebSocket } from '../classes/slitherws.js'
 
+// Internal types
 import type { TwitchAuthCodeRequest } from '../types/authtypes.js'
+import type { AlertMessage } from '../types/slitherwstypes.js'
+
+// Internal logic modules
 import { registerOrLoginSlitherUser, signSlitherToken, verifySlitherToken, refreshSlitherAccessToken, addSlitherTokenCookie, verifyAlertsConnectionToken } from '../services/slitherauth.js'
-import { registerTwitchUser, oauthStateOrParamProblem, fetchUserAccessToken, validateUserAccessToken } from '../services/twitchauth.js'
-import { AlertMessage } from '../types/slitherwstypes.js'
+import { registerTwitchUser, oauthStateOrParamProblem, fetchUserAccessToken, validateUserAccessToken, verifyEventMessage } from '../services/twitchauth.js'
+import { eventSubScopes } from '../services/eventsubclient.js'
+
+// Direct DB queries
+import { getAlertsTokenForUser } from '../db/queries/slitherauth.js'
 
 const AUTH_REDIRECT_URI = new URL(`https://${sslConfig.hostName}/slither/oauth`)
 const AUTH_STATES = new Set<string>
-
-// TODO: Move these into a separate file and include more information about all the events we
-// want to subscribe to. Or maybe a DB table, but this is probably static info we can just keep
-// in a .ts file
-const SLITHER_SCOPES: string[] = ['channel:read:redemptions', 'channel:manage:redemptions']
 
 const rawParser = bodyParser.raw({ type: 'application/json' })
 const jsonParser = bodyParser.json()
@@ -26,8 +31,6 @@ const router = express.Router()
 const ws = new SlitherControllerClientWebSocket()
 ws.connect(wsConfig.controllerSecret) // unawaited async
 
-import { verifyEventMessage } from '../services/twitchauth.js'
-import { getAlertsTokenForUser, getUserIDForRefreshToken } from '../db/queries/slitherauth.js'
 /**
  * POST request received from Twitch when either:
  * 		- We create an EventSub subscription to a channel point reward and have to respond
@@ -106,21 +109,32 @@ router.post('/event', rawParser, async (req, res) => {
 
 		return
 	}
-
+	
+	// TODO: Support subscription revocations
+	/***************************SUBSCRIPTION REVOKED BY TWITCH******************************************************
+	* Subscriptions can be revoked by Twitch for the following reasons:
+	*  	- 'user_removed': User no longer exists
+	*		ACTION: Delete user's Twitch data from Slither entirely
+	*   - 'authorization_revoked': User revoked auth token, OR just changed their password
+	*   	ACTION: Verify the user access token
+	*		- Successful (pw changed): Resubscribe to the event
+	*		- Unsuccessful (user revoked token): Deactivate user on backend (TODO: Determine what needs to be done here)
+	*   - 'notification_failures_exceeded': Callback failed to respond too many times
+	* 		ACTION: Review the event's handler code to determine why our callback is not responding
+	* 	- 'version_removed': The type and version of subscription is no longer valid.
+	* 		ACTION: Review Twitch docs and figure out how to change the code for the event handler and/or subscription creation
+	****************************************************************************************************************/
 	else if(messageType === 'revocation') {
-		res.sendStatus(204);
+		res.sendStatus(204)
 
 		console.log(`Subscription revoked by Twitch! Reason: ${req.body.subscription.status}`)
 		console.log(`Full message body: ${JSON.stringify(req.body)}`)
-
-		// TODO: Add event subscriptions to the backend DB schema
-		// TODO: Remove the subscription information in our database OR set as revoked
 
 		return
 	}
 
 	else {
-		res.sendStatus(204);
+		res.sendStatus(204)
 		console.log(`Unknown message type received from Twitch: ${req.headers[messageType]}`)
 
 		return
@@ -184,14 +198,14 @@ router.get('/media/:filename', (req, res) => {
 router.post('/auth/refresh', jsonParser, async (req, res) => {
 
 	const refreshToken = req.cookies?.refresh_token
-	if(!refreshToken) {
-		return res.status(401).json({error: `Refresh token not provided`})
-	}
+	if(!refreshToken) return res.status(401).json({error: `Refresh token not provided`})
 
 	const userId = await verifySlitherToken(refreshToken, 'refresh')
 	if(!userId) {
+
 		res.clearCookie('refresh_token')
 		return res.status(401).json({error: `Session expired`})
+
 	}
 
 	const accessToken = await signSlitherToken(userId, 'access')
@@ -219,8 +233,8 @@ router.get('/auth/twitch', (req, res) => {
 		
 	}, 1000 * 60 * 10) // State is valid for 10 minutes. After that, remove it from the array so it cannot be used to authenticate.
 
-	let scopes = '';
-	for(let scope of SLITHER_SCOPES) scopes += `${encodeURIComponent(scope)}+`
+	let scopes = ''
+	for(let scope of eventSubScopes) scopes += `${encodeURIComponent(scope)}+`
 	scopes = scopes.substring(0, scopes.length-1)
 
 	let twitchAuthParams: TwitchAuthCodeRequest = {
@@ -287,8 +301,7 @@ router.get('/oauth', jsonParser, async (req, res) => {
 	return res.redirect(`/slither/home`)
 })
 
-// GET /slither/home with no tokenType parameter renders the slither/auth.ejs view instead.
-// GET /slither/home with a tokenType parameter renders slither/home.ejs while passing along the tokenType parameter
+// Protected route. Redirect to /slither/auth if the browser cookies do not contain a valid authentication token.
 router.get('/home', async (req, res) => {
 
 	let navItems: { label: string, href: string }[] = []
@@ -301,15 +314,13 @@ router.get('/home', async (req, res) => {
 		addSlitherTokenCookie(res, refreshResult.accessToken, 'access')
 
 		userId = refreshResult.userId
+
 	}
 
 	navItems.push({href: `/slither/logout`, label: 'Logout'})
 
 	const alertsToken = await getAlertsTokenForUser(userId)
-	const alertsUrl = (() => {
-		if(!alertsToken) return ''
-		return `https://${sslConfig.hostName}/slither/alerts/${alertsToken}`
-	})()
+	const alertsUrl = alertsToken ? `https://${sslConfig.hostName}/slither/alerts/${alertsToken}` : ''
 
 	res.render(`slither/home`, {
 		alertsUrl: alertsUrl,

@@ -39,7 +39,6 @@ export class SlitherControllerClientWebSocket implements ISlitherWebSocket {
     readonly onMessage: (rawMessage: RawData) => void
 
     #ws: WebSocket | undefined // The underlying abstracted WebSocket. Will not be undefined after the connect method is called
-    #token: string | undefined
     #secret: string | undefined
 
     #queue: (AlertMessage | PingMessage | PongMessage)[] // Queue for messages in case the controller somehow loses websocket connection to the WebSocket server
@@ -116,7 +115,8 @@ export class SlitherControllerClientWebSocket implements ISlitherWebSocket {
         this.#secret = incomingSecret
         const SECRET = new TextEncoder().encode(incomingSecret)
 
-        const token = this.#token = await new SignJWT({ userId: this.userId, clientType: this.clientType })
+        const token = await new SignJWT({ userId: this.userId, clientType: this.clientType })
+                            .setIssuedAt()
                             .setProtectedHeader({alg: 'HS256'})
                             .sign(SECRET)
 
