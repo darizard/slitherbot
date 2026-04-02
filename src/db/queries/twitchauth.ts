@@ -1,4 +1,4 @@
-import { Selectable, Insertable, Updateable, InsertResult, sql, UpdateResult } from 'kysely'
+import { Selectable, Insertable, sql, UpdateResult } from 'kysely'
 import { DB } from 'kysely-codegen'
 import { db } from '../database.js'
 import { jsonArrayFrom } from 'kysely/helpers/mysql'
@@ -27,8 +27,8 @@ export async function updateSlitherAppToken(token: TwitchAuthAppToken): Promise<
 
 }
 
-// Get all db info on users who have authenticated with this app
-export async function getActiveTokenUsers(): Promise<Selectable<DB['Users']>[]> {
+// Get all db info on users for whom we have a Twitch User Refresh Token
+export async function getActiveUsers(): Promise<Selectable<DB['Users']>[]> {
 
     return await db.selectFrom('Users')
         .selectAll()
@@ -37,9 +37,20 @@ export async function getActiveTokenUsers(): Promise<Selectable<DB['Users']>[]> 
                 builder.selectFrom('Users').select('scopes')
             ).as('Users')
         ])
-        .where('access_token', '!=', '')
+        .where('refresh_token', '!=', '')
         .execute()
 
+}
+
+export async function getActiveChannels(): Promise<string[]> {
+
+    const objArr = await db.selectFrom('Users')
+                            .select('channel_id')
+                            .execute()
+
+    const strArr: string[] = []
+    objArr.forEach((item) => strArr.push(item.channel_id))
+    return strArr
 }
 
 export async function getAccessTokens(tokens: string[] | string): Promise<Pick<Selectable<DB['Users']>, 'channel_id' | 'access_token' | 'refresh_token'>[]> {

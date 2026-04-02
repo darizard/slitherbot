@@ -1,6 +1,6 @@
-# SlitherBot Twitch Helper - v0.0.2
+# Slither Twitch Helper - v0.0.2
 
-SlitherBot is a remote-hosted Twitch alerts handling application. This is a personal project aimed at learning! It currently features the ability to listen to Twitch EventSub Custom Channel Point Reward Redemption events and display an alert in a browser, similar to StreamElements or StreamLabs, but of course in a limited capacity.
+Slither is a remote-hosted Twitch alerts handling application. This is a personal project aimed at learning! It currently features the ability to listen to Twitch EventSub Custom Channel Point Reward Redemption events and display an alert in a browser, similar to StreamElements or StreamLabs, but of course in a limited capacity.
 
 v0.0.2 only triggers one kind of alert for all channel point redeems. Lots of customizability to come!
 

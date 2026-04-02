@@ -17,10 +17,12 @@ import type { AlertMessage } from '../types/slitherwstypes.js'
 // Internal logic modules
 import { registerSlitherUser, signSlitherToken, verifySlitherToken, refreshSlitherAccessToken, addSlitherTokenCookie, verifyAlertsConnectionToken } from '../services/slitherauth.js'
 import { registerTwitchUser, fetchUserAccessToken, validateUserAccessToken, verifyEventMessage } from '../services/twitchauth.js'
-import { eventSubScopes } from '../services/eventsubclient.js'
+import { handleDisabledSubscription, registerNewEventSubscription } from '../services/eventsubclient.js'
+import { SlitherEventSub } from '../classes/eventsub.js'
 
 // Direct DB queries
 import { getAlertsTokenForUser, requiresLogin, requireLogin } from '../db/queries/slitherauth.js'
+import { TwitchEventSubNotification, WebhookCallbackChallengeRequest } from '../types/eventsubtypes.js'
 
 const AUTH_REDIRECT_URI = new URL(`https://${sslConfig.hostName}/slither/oauth`)
 const AUTH_STATES = new Set<string>
@@ -44,7 +46,6 @@ ws.connect(wsConfig.controllerSecret) // unawaited async
  * 
  * This method must call the appropriate channel point reward
  **/
-// TODO: Implement /event endpoint to process twitch event messages in a more general manner than the endpoint above
 router.post('/event', rawParser, async (req, res) => {
 
 	if(!verifyEventMessage(req)) {
@@ -70,6 +71,8 @@ router.post('/event', rawParser, async (req, res) => {
 		res.sendStatus(204)
 	}
 
+	// TODO: This will not work for all events. Handle each event according to its type.
+	// Currently this is assuming a channel points reward redemption add
 	const userId = req.body.subscription.condition.broadcaster_user_id as string
 
 	// We trust twitch to give us the message type as a string
@@ -77,14 +80,17 @@ router.post('/event', rawParser, async (req, res) => {
 
 	if(messageType === 'webhook_callback_verification') {
 
+		const challengeReq: WebhookCallbackChallengeRequest = req.body
+
 		// We need to register the EventSub subscription. First, respond to Twitch's auth challenge
 		res.set('Content-Type', 'text/plain')
 		   .set('Content-Length', `${req.body.challenge.length}`)
 		   .status(200)
-		   .send(req.body.challenge)
+		   .send(challengeReq.challenge)
 
-		// TODO: Add event subscriptions to the backend DB schema
-		// TODO: Upsert the subscription information in our database
+		// Once challenge has been sent, assume the subscription has been enabled. This is an extremely
+		// simple request that we are sending back so there should be no issue
+		await registerNewEventSubscription(challengeReq)
 
 		return
 	}
@@ -131,6 +137,8 @@ router.post('/event', rawParser, async (req, res) => {
 		console.log(`Subscription revoked by Twitch! Reason: ${req.body.subscription.status}`)
 		console.log(`Full message body: ${JSON.stringify(req.body)}`)
 
+		handleDisabledSubscription(req.body.subscription as TwitchEventSubNotification)
+
 		return
 	}
 
@@ -143,7 +151,8 @@ router.post('/event', rawParser, async (req, res) => {
 
 })
 
-// TODO: Implement user-specific alerts websocket connections on the client side
+// Serves a page that displays alerts for the user authenticated by paramToken. paramToken is a semi-public credential
+// which serves no other purpose than to serve these alerts and cannot be used externally to identify the user
 router.get('/alerts/:paramToken', async (req, res) => {
 
 	const alertsJwt = await verifyAlertsConnectionToken(req.params.paramToken)
@@ -153,7 +162,7 @@ router.get('/alerts/:paramToken', async (req, res) => {
 
 })
 
-// Obtain the alerts token for the given user intended for use in an OBS browser source URL. This is not strictly private information
+// Obtain the alerts token for the given user intended for use in an OBS browser source URL. This token is semi-public data.
 router.post('/alerts/token', jsonParser, async (req, res) => {
 
 	const userId = await verifySlitherToken(req.cookies?.access_token, 'access')
@@ -196,6 +205,8 @@ router.get('/media/:filename', (req, res) => {
 
 })
 
+// Issues a refreshed Slither access token to the user via a secure browser cookie, or if the refresh token is invalid,
+// clear it from the requester's browser
 router.post('/auth/refresh', jsonParser, async (req, res) => {
 
 	const refreshToken = req.cookies?.refresh_token
@@ -218,8 +229,8 @@ router.post('/auth/refresh', jsonParser, async (req, res) => {
 
 })
 
-// User has clicked Authorize Me! on /slither/auth and now we need to create a State value
-// and redirect the user to Twitch's OAuth system
+// User has opted to authorize Slither to use their data and now we need to create a State value
+// and redirect the user to Twitch's OAuth system to complete the process
 router.get('/auth/twitch', (req, res) => {
 
 	const state = crypto.randomBytes(32).toString('hex')
@@ -235,7 +246,7 @@ router.get('/auth/twitch', (req, res) => {
 	}, 1000 * 60 * 10) // State is valid for 10 minutes. After that, remove it from the array so it cannot be used to authenticate.
 
 	let scopes = ''
-	for(let scope of eventSubScopes) scopes += `${encodeURIComponent(scope)}+`
+	for(let scope of SlitherEventSub.scopes) scopes += `${encodeURIComponent(scope)}+`
 	scopes = scopes.substring(0, scopes.length-1)
 
 	let twitchAuthParams: TwitchAuthCodeRequest = {
@@ -250,6 +261,7 @@ router.get('/auth/twitch', (req, res) => {
 
 })
 
+// Serves an auth page the asks the user to authorize Slither to access their Twitch data
 router.get('/auth', async (req, res) => {
 
 	// If this returns a userID, the user is already logged in and should not be presented the auth view
@@ -336,8 +348,6 @@ router.get('/home', async (req, res) => {
 	if(!twitchId) {
 		const refreshResult = await refreshSlitherAccessToken(req.cookies?.refresh_token)
 		if(!refreshResult || !refreshResult.accessToken) return res.redirect(`/slither/auth`)
-
-
 
 		addSlitherTokenCookie(res, refreshResult.accessToken, 'access')
 

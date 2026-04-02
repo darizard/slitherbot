@@ -17,11 +17,11 @@
 
 import fs from 'fs'
 import type { Server as httpsServer } from 'https'
-import { WebSocketServer, WebSocket } from 'ws'
+import { WebSocketServer } from 'ws'
 import url from 'url'
-import { WSClientType, AlertMessage, WSMessage, PongMessage } from '../types/slitherwstypes.js' // Import the WebSocket connection and connection management functions defined in slitherws.js
+import { WSClientType } from '../types/slitherwstypes.js' // Import the WebSocket connection and connection management functions defined in slitherws.js
 import { SlitherAlertsServerWebSocket, SlitherControllerServerWebSocket } from '../classes/slitherws.js'
-import { SignJWT, jwtVerify } from 'jose'
+import { jwtVerify } from 'jose'
 
 import { jwt as jwtConfig, ssl as sslConfig, ws as wsConfig } from '../config.js'
 import { verifySlitherToken } from './slitherauth.js'
@@ -99,7 +99,7 @@ export function init(server: httpsServer) {
                     const secret = new TextEncoder().encode(wsConfig.controllerSecret)
                     const jwtVerificationResult = await jwtVerify(urlQuery['token'] as string, secret)
                     const { userId, clientType } = jwtVerificationResult.payload
-                    if(userId !== 'controller' || clientType != 'controller' || Object.keys(jwtVerificationResult.payload).indexOf('iat') === -1
+                    if(userId !== '.controller.' || clientType != 'controller' || Object.keys(jwtVerificationResult.payload).indexOf('iat') === -1
                                                || Object.keys(jwtVerificationResult.payload).length !== 3) {
 
                         // TODO: Elevate logging as this could represent a security problem

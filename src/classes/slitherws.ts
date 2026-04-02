@@ -6,7 +6,7 @@
 import { WebSocket, RawData } from 'ws'
 
 import type { WSMessage, AlertMessage, PingMessage, PongMessage } from '../types/slitherwstypes.js'
-import { isAlertMessage, isPingMessage, isPongMessage, isWSMessage } from '../types/slitherwstypes.js'
+import { isAlertMessage, isPingMessage, isPongMessage } from '../types/slitherwstypes.js'
 
 import { ssl as sslConfig } from '../config.js'
 
@@ -51,7 +51,7 @@ export class SlitherControllerClientWebSocket implements ISlitherWebSocket {
 
         this.#queue = []
 
-        this.userId = 'controller'
+        this.userId = '.controller.'
         this.clientType = 'controller'
         this.instantiationTimestamp = Date.now()
 
@@ -183,7 +183,7 @@ export class SlitherControllerServerWebSocket implements ISlitherWebSocket {
 
     constructor(forwardSockets: Set<SlitherAlertsServerWebSocket>) {
 
-        this.userId = 'controller'
+        this.userId = '.controller.'
         this.clientType = 'controller'
         this.instantiationTimestamp = Date.now()
         this.forwardSockets = forwardSockets

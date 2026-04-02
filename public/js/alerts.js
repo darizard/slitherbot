@@ -58,13 +58,13 @@ connectWebSocket()
         if(messageJSON.data.imageFile) {
 
           alertImageElement.style.display = 'inline'
-          alertImageElement.src = "/slither/media/" + messageJSON.data.imageFile || "/slither/media/"
+          alertImageElement.src = "/slither/media/" + (messageJSON.data.imageFile || '')
 
         }
 
         if(messageJSON.data.audioFile) {
 
-          alertAudioElement.src = "/slither/media/" + messageJSON.data.audioFile || ''
+          alertAudioElement.src = "/slither/media/" + (messageJSON.data.audioFile || '')
           alertAudioElement.play()
 
         }

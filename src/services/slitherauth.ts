@@ -4,9 +4,10 @@
 
 import { generateSecret } from './secrets.js'
 import slithersql from '../db/queries/slitherauth.js'
+import eventsubsql from '../db/queries/eventsub.js'
 import { SignJWT, jwtVerify } from 'jose'
 import { jwt as jwtConfig, ws as wsConfig } from '../config.js'
-import type { SlitherTokenType, AlertsWebSocketAuthInfo } from '../types/authtypes.js'
+import type { SlitherTokenType } from '../types/authtypes.js'
 import type { Response } from 'express'
 
 const SECRETS = new Map<string, Uint8Array>()
@@ -30,27 +31,39 @@ export async function refreshSlitherAccessToken(refreshToken: string): Promise<{
 // signed with the secret from jwtConfig
 export async function registerSlitherUser(userId: string): Promise<void | null> {
 
+    // Alerts token should remain the same between authorization cycles, e.g. if the user disconnects Slither
+    // on the Twitch and and then reconnects later. At this stage we are only worrying about inserting an alerts
+    // token, all other data for the SlitherIDs table is handled outside of this methid.
+    // TODO: Provide a way for the user to rotate their alerts token
     if(!await slithersql.getAlertsTokenForUser(userId))
     {
         const alertsToken = generateSecret()
-        let upsertResult = await slithersql.upsertSlitherUser(userId, alertsToken)
+        let slitherIdUpsertResult = await slithersql.upsertSlitherUser(userId, alertsToken)
 
-        // in case of a collision, try again with a small delay
-        if(upsertResult === 1062) {
+        // in the extremely unlikely case of a collision, try again with a small delay
+        if(slitherIdUpsertResult === 1062) {
             setTimeout(async () => {
-                upsertResult = await slithersql.upsertSlitherUser(userId, alertsToken)
+                slitherIdUpsertResult = await slithersql.upsertSlitherUser(userId, alertsToken)
             }, 250)
         }
 
-        if(upsertResult === 1062) {
+        if(slitherIdUpsertResult === 1062) {
             console.error(`Alerts token collision error on slither user upsert attempt during registration or login`)
             return null
         } 
-        if(!upsertResult) {
+        if(!slitherIdUpsertResult) {
             console.error(`Error upserting new alerts token into slither auth table for user ${userId}`)
             return null
         }
     }
+
+    // Now that the user has been created in the database, use SlitherEventSub client to add records for the required user event types.
+    // This will NOT return null and will NOT prevent user authentication, but EventSub will not work properly until the issue is resolved.
+    const eventSubUpsertId = await eventsubsql.initRequiredUserSubs(userId)
+    if(!eventSubUpsertId) {
+        console.error(`Error upserting newly registered user's required EventSub user even types for userId ${userId}`)
+    }
+
 }
 
 export async function signSlitherToken(userId: string, tokenType: SlitherTokenType): Promise<string | undefined> {
