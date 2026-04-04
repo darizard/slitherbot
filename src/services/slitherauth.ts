@@ -107,10 +107,10 @@ export async function verifySlitherToken(token: string, tokenType: SlitherTokenT
     try {
 
         const jwtVerificationResult = await jwtVerify(token, secret)
-        if(jwtVerificationResult.payload.token_type !== tokenType) 
-            { throw new Error(`Token type mismatch. Token type expected: ${tokenType}; token type received: ${jwtVerificationResult.payload.token_type}`) }
+        if(jwtVerificationResult.payload['token_type'] !== tokenType) 
+            { throw new Error(`Token type mismatch. Token type expected: ${tokenType}; token type received: ${jwtVerificationResult.payload['token_type']}`) }
 
-        return jwtVerificationResult.payload.user_id as string
+        return jwtVerificationResult.payload['user_id'] as string
 
     } catch (err) {
 

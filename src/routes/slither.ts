@@ -174,7 +174,7 @@ router.post('/alerts/token', jsonParser, async (req, res) => {
 
 })
 
-router.get('/alerts', (req, res) => {
+router.get('/alerts', (_req, res) => {
 
 	res.render("slither/alerts", {
 		hostName: sslConfig.hostName,
@@ -230,7 +230,7 @@ router.post('/auth/refresh', jsonParser, async (req, res) => {
 
 // User has opted to authorize Slither to use their data and now we need to create a State value
 // and redirect the user to Twitch's OAuth system to complete the process
-router.get('/auth/twitch', (req, res) => {
+router.get('/auth/twitch', (_req, res) => {
 
 	const state = crypto.randomBytes(32).toString('hex')
 	AUTH_STATES.add(state)
@@ -279,12 +279,12 @@ router.get('/auth', async (req, res) => {
 // to use this app's features. Then we rediret the user to SlitherBot's home page.
 router.get('/oauth', jsonParser, async (req, res) => {
 
-	if(typeof req.query.state !== 'string' || !AUTH_STATES.has(req.query.state)) {
+	if(typeof req.query['state'] !== 'string' || !AUTH_STATES.has(req.query['state'])) {
 		// TODO: Treat this error as a security risk and elevate the logging
-		console.log(`Received an auth code with an invalid or already used state value: ${req.query.state}. Rejecting request.`)
+		console.log(`Received an auth code with an invalid or already used state value: ${req.query['state']}. Rejecting request.`)
 		return res.sendStatus(400)
 	}
-	AUTH_STATES.delete(req.query.state)
+	AUTH_STATES.delete(req.query['state'])
 
 	if(isTwitchAuthError(req.query)) {
 		console.log(`OAuth Error received from Twitch: ${JSON.stringify(req.query)}`)
@@ -366,7 +366,7 @@ router.get('/home', async (req, res) => {
 	
 })
 
-router.get('/logout', (req, res) => {
+router.get('/logout', (_req, res) => {
 
 	res.clearCookie('access_token')
 	res.clearCookie('refresh_token')
@@ -375,7 +375,7 @@ router.get('/logout', (req, res) => {
 })
 
 // GET /slither simply redirects the user to /slither/home
-router.get('/', (req, res) => {
+router.get('/', (_req, res) => {
 
 	return res.redirect(`/slither/home`)
 

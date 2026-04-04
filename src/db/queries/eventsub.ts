@@ -1,4 +1,4 @@
-import { SlitherUserEventSubscription, SlitherAppEventSubscription, SubscriptionType, CreateSubscriptionRequestBody } from '../../types/eventsubtypes.js'
+import { SlitherUserEventSubscription, SlitherAppEventSubscription, SubscriptionType } from '../../types/eventsubtypes.js'
 import { db } from '../database.js'
 import { DB } from 'kysely-codegen'
 import { sql, Insertable, InsertResult, Selectable } from 'kysely'
@@ -95,7 +95,10 @@ export async function initRequiredUserSubs(channelIds: string | string[]): Promi
                                     .ignore()
                                     .execute()
 
-    if(insertArr.length === 1) return insertResult[0]
+    if(insertResult.length > 1) insertResult
+    
+
+    if(insertArr.length === 1 && insertResult[0]) return insertResult[0]
     return insertResult
 
 }

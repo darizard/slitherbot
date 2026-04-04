@@ -3,15 +3,15 @@
  **********************************************************************************************************************/
 
 import crypto from 'crypto'
-import type { Request, Response } from 'express'
+import type { Request } from 'express'
 import { Insertable, InsertResult } from 'kysely'
 import { DB } from "kysely-codegen"
 import twitchsql, { updateSlitherAppToken } from '../db/queries/twitchauth.js'
 import { twitch as twitchConfig, ssl as sslConfig } from "../config.js"
 import type { TwitchAuthUserTokenValidationResponse, TwitchAuthTokenValidationErrorResponse, TwitchRefreshUserTokenRequest, TwitchRefreshUserTokenResponse, 
-              TwitchAuthError, TwitchAuthCode, TwitchAuthUserTokenRequest, TwitchAuthUserToken, TwitchAuthAppToken, TwitchAuthAppTokenValidationResponse } from "../types/authtypes.js"
-import { isTwitchAuthUserTokenValidationResponse, isTwitchAuthTokenValidationErrorResponse, isTwitchRefreshUserTokenResponse, isTwitchAuthError, isTwitchAuthCode, 
-         isTwitchAuthUserToken, isTwitchAuthAppToken, isTwitchAuthAppTokenValidationResponse } from "../types/authtypes.js"
+              TwitchAuthUserTokenRequest, TwitchAuthUserToken, TwitchAuthAppTokenValidationResponse } from "../types/authtypes.js"
+import { isTwitchAuthUserTokenValidationResponse, isTwitchAuthTokenValidationErrorResponse, isTwitchRefreshUserTokenResponse, 
+         isTwitchAuthAppTokenValidationResponse } from "../types/authtypes.js"
 
 export async function getValidatedSlitherAppToken(): Promise<string | undefined> {
 

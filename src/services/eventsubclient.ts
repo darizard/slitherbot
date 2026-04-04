@@ -15,12 +15,11 @@
 // internal app imports
 import { getValidatedSlitherAppToken } from './twitchauth.js'
 import { twitch as twitchConfig } from '../config.js'
-import type { CreateSubscriptionRequestBody, CreateSubscriptionSuccessResponse, TwitchEventNotification, 
-				WebhookCallbackChallengeRequest, EventSubCondition, SubscriptionType, 
+import type { CreateSubscriptionRequestBody, TwitchEventNotification, 
+				WebhookCallbackChallengeRequest, SubscriptionType, 
 				SlitherUserEventSubscription, SlitherAppEventSubscription } from '../types/eventsubtypes.js'
 
 // DB imports
-import appsql from '../db/queries/appauth.js'
 import eventsubsql from '../db/queries/eventsub.js'
 import twitchauthsql from '../db/queries/twitchauth.js'
 
@@ -185,42 +184,38 @@ async function fetchAllTwitchSubscriptions(): Promise<Set<TwitchEventNotificatio
 
 export async function registerNewEventSubscription(challengeReq: WebhookCallbackChallengeRequest): Promise<void> {
 
-	// user.authorization.[grant/revoke] are special events that Slither maintains one of each of.
-	// They are maintained in the AppInfo DB table and not in the EventSubSubscription table.
+	
+	if(SlitherEventSub.requiredAppTypes.has(challengeReq.subscription.type)) {
+		const dbSub = {
+			id: challengeReq.subscription.id,
+			type: challengeReq.subscription.type,
+			version: SlitherEventSub.versionOf(challengeReq.subscription.type)
+		}
 
-	// I may add another table to maintain App-level event subscriptions, but for now separate them
-	// between Authorization events and everything else
-	switch(challengeReq.subscription.type) {
-		case 'user.authorization.grant':
-			await appsql.updateAuthorizationEventSubscriptionIDs({ grant_id: challengeReq.subscription.id })
-			break
+		await eventsubsql.upsertAppEventSub(dbSub)
 
-		case 'user.authorization.revoke':
-			await appsql.updateAuthorizationEventSubscriptionIDs({ revoke_id: challengeReq.subscription.id })
-			break
+	// All other events Slither currently subscribes to use a User Access Token
+	} else if(SlitherEventSub.requiredUserTypes.has(challengeReq.subscription.type)) {
+		const twitchId = SlitherEventSub.broadcasterOf(challengeReq.subscription.condition, challengeReq.subscription.type)
 
-		// All other events Slither currently subscribes to use a User Access Token
-		default:
-			const twitchId = challengeReq.subscription.condition.broadcaster_user_id ?? 
-							 challengeReq.subscription.condition.to_broadcaster_user_id ??
-							 challengeReq.subscription.condition.user_id
+		if(!twitchId) {
+			console.error(`Error registering Event Subscription: Could not retrieve twitch ID from object condition.`)
+			return
+		}
+		
+		const dbSub = {
+			id: challengeReq.subscription.id,
+			channel_id: twitchId,
+			type: challengeReq.subscription.type,
+			version: SlitherEventSub.versionOf(challengeReq.subscription.type)
+		}
 
-			if(!twitchId) {
-				console.error(`Error registering Event Subscription: Could not retrieve twitch ID from object condition.`)
-				break
-			}
-			
-			const dbSub = {
-				id: challengeReq.subscription.id,
-				channel_id: twitchId,
-				type: challengeReq.subscription.type,
-				version: SlitherEventSub.versionOf(challengeReq.subscription.type) ?? ''
-			}
+		await eventsubsql.upsertUserEventSub(dbSub)
+	} else {
 
-			await eventsubsql.upsertUserEventSub(dbSub)
+		console.error(`Error registering Event Subscription: Unsupported event type: ${challengeReq.subscription.type}`)
 
 	}
-
 }
 
 export async function handleDisabledSubscription(subscription: TwitchEventNotification): Promise<void> {

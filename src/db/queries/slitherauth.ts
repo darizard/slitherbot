@@ -1,8 +1,6 @@
-import { Selectable, Insertable, Updateable, InsertResult, UpdateResult, sql } from 'kysely'
+import { InsertResult, UpdateResult } from 'kysely'
 import { QueryError } from 'mysql2'
-import { DB } from 'kysely-codegen'
 import { db } from '../database.js'
-import { error } from 'node:console'
 
 export async function getUserIDForRefreshToken(refreshToken: string): Promise<string | null | undefined> {
 

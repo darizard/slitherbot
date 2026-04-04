@@ -69,6 +69,7 @@ export class SlitherEventSub {
         return this.#subVersionMap.get(type) as string
     }
 
+    // User-level events MUST contain the channelId or the returned object will be empty
     static conditionOf(subType: SubscriptionType, channelId?: string): EventSubCondition {
         switch(subType) {
             // broadcaster_user_id only
@@ -83,6 +84,7 @@ export class SlitherEventSub {
             case 'channel.hype_train.begin':
             case 'channel.hype_train.end':
             case 'channel.hype_train.progress':
+                if(!channelId) return {}
                 return { broadcaster_user_id: channelId }
             
             // broadcaster_user_id and user_id
@@ -93,6 +95,7 @@ export class SlitherEventSub {
 
             // user_id only
             case 'user.update':
+                if(!channelId) return {}
                 return { user_id: channelId }
 
             // broadcaster_user_id and moderator_user_id
@@ -100,6 +103,7 @@ export class SlitherEventSub {
             case 'channel.moderate':
             case 'channel.shoutout.create':
             case 'channel.shoutout.receive':
+                if(!channelId) return {}
                 return { broadcaster_user_id: channelId, moderator_user_id: channelId }
 
             // client_id only
@@ -109,6 +113,7 @@ export class SlitherEventSub {
 
             // to_broadcaster_user_id only
             case 'channel.raid':
+                if(!channelId) return {}
                 return { to_broadcaster_user_id: channelId }
                 // If we somehow want notifications when the user raids another channel then perform
                 // logic and then return either to_... or from_... in the condition
@@ -168,7 +173,6 @@ export class SlitherEventSub {
                 console.log(`Cannot provide broadcasterId for invalid sub type: ${subType satisfies never}`)
                 return ''
         }
-
     }
 
 }

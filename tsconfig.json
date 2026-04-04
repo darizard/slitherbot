@@ -9,7 +9,22 @@
         "noImplicitAny": true,
         "skipLibCheck": true,
         "esModuleInterop": true,
-        "moduleResolution": "nodenext"
+        "moduleResolution": "nodenext",
+        "noUnusedLocals": true,
+        "noUnusedParameters": true,
+        "allowUnusedLabels": false,
+        "noUncheckedSideEffectImports": true,
+        "noFallthroughCasesInSwitch": true,
+        "allowUnreachableCode": false,
+
+        "noUncheckedIndexedAccess": true,
+        "noPropertyAccessFromIndexSignature": true,
+        "erasableSyntaxOnly": true,
+
+        "noImplicitOverride": true,
+        "exactOptionalPropertyTypes": true
+        //"noErrorTruncation": true // Set this if type truncation is an issue
+
     },
     "include": ["./src/**/*"]
 }
