@@ -2,6 +2,7 @@
     "compilerOptions": {
         "strict": true,
         "outDir": "./built",
+        "rootDir": "./src",
         "allowJs": true,
         "target": "esnext",
         "module": "nodenext",
