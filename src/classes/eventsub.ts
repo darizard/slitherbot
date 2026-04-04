@@ -1,5 +1,5 @@
-import { EventSubCondition, SubscriptionType } from "../types/eventsubtypes.js"
-import { twitch as twitchConfig, ssl as sslConfig } from '../config.js'
+import { EventSubCondition, SubscriptionType, SlitherEventSubscription } from "../types/eventsubtypes.js";
+import { twitch as twitchConfig, ssl as sslConfig } from '../config.js';
 
 export class SlitherEventSub {
 
@@ -31,11 +31,11 @@ export class SlitherEventSub {
         ['channel.moderate', '2'],
         ['channel.shoutout.create', '1'],
         ['channel.shoutout.receive', '1']
-    ])
+    ]);
 
-    static readonly #callbackURI = `https://${sslConfig.hostName}/slither/event`
+    static readonly #callbackURI = `https://${sslConfig.hostName}/slither/event`;
 
-    static readonly requiredUserTypes = new Set<SubscriptionType>([
+    static readonly alertSubscriptionTypes = new Set<SubscriptionType>([
         'channel.follow',
         'channel.subscribe',
         'channel.subscription.gift', 
@@ -45,32 +45,43 @@ export class SlitherEventSub {
         'channel.channel_points_custom_reward_redemption.add',
 		'channel.channel_points_custom_reward_redemption.update',
         'channel.hype_train.begin',
-        'channel.hype_train.end',
-        'user.update'
-    ])
+        'channel.hype_train.end'
+    ]);
 
-    static readonly requiredAppTypes = new Set<SubscriptionType>([
+    static readonly userMaintenanceTypes = new Set<SubscriptionType>([
+        'user.update'
+    ]);
+
+    static readonly appMaintenanceTypes = new Set<SubscriptionType>([
         'user.authorization.grant',
         'user.authorization.revoke'
-    ])
+    ]);
     
     static readonly scopes = new Set<string>(['bits:read', 'channel:read:redemptions', 'channel:manage:redemptions', 
 	'moderator:read:followers', 'channel:read:subscriptions', 'moderator:read:shoutouts', 'moderator:manage:shoutouts', 
 	'channel:read:hype_train', 'channel:read:predictions', 'channel:manage:predictions', 'channel:read:polls',
-	'channel:manage:polls', 'user:read:chat'])
+	'channel:manage:polls', 'user:read:chat']);
 
     static readonly subscriptionCreationTransport = Object.freeze({
         method: 'webhook',
         callback: this.#callbackURI,
         secret: twitchConfig.eventsubSecret
-    })
+    });
+
+    static isAppSubType(type: SubscriptionType): boolean {
+        return this.appMaintenanceTypes.has(type);
+    }
+
+    static isUserSubType(type: SubscriptionType): boolean {
+        return this.userMaintenanceTypes.has(type) || this.alertSubscriptionTypes.has(type);
+    }
 
     static versionOf(type: SubscriptionType): string {
-        return this.#subVersionMap.get(type) as string
+        return this.#subVersionMap.get(type) as string;
     }
 
     // User-level events MUST contain the channelId or the returned object will be empty
-    static conditionOf(subType: SubscriptionType, channelId?: string): EventSubCondition {
+    static conditionOf(subType: SubscriptionType, channelId: string): EventSubCondition {
         switch(subType) {
             // broadcaster_user_id only
             case 'channel.bits.use':
@@ -84,43 +95,44 @@ export class SlitherEventSub {
             case 'channel.hype_train.begin':
             case 'channel.hype_train.end':
             case 'channel.hype_train.progress':
-                if(!channelId) return {}
-                return { broadcaster_user_id: channelId }
+                if(!channelId) return {};
+                return { broadcaster_user_id: channelId };
             
             // broadcaster_user_id and user_id
             // TODO: These will remain unsupported until I research into them some more
             case 'channel.chat.message':
             case 'channel.chat.notification':
-                return { }
+                return { };
 
             // user_id only
             case 'user.update':
-                if(!channelId) return {}
-                return { user_id: channelId }
+                if(!channelId) return {};
+                return { user_id: channelId };
 
             // broadcaster_user_id and moderator_user_id
             case 'channel.follow':
             case 'channel.moderate':
             case 'channel.shoutout.create':
             case 'channel.shoutout.receive':
-                if(!channelId) return {}
-                return { broadcaster_user_id: channelId, moderator_user_id: channelId }
+                if(!channelId) return {};
+                return { broadcaster_user_id: channelId, moderator_user_id: channelId };
 
             // client_id only
             case 'user.authorization.grant':
             case 'user.authorization.revoke':
-                return { client_id: twitchConfig.clientId }
+                if(channelId !== '.') return {};
+                return { client_id: twitchConfig.clientId };
 
             // to_broadcaster_user_id only
             case 'channel.raid':
-                if(!channelId) return {}
-                return { to_broadcaster_user_id: channelId }
+                if(!channelId) return {};
+                return { to_broadcaster_user_id: channelId };
                 // If we somehow want notifications when the user raids another channel then perform
                 // logic and then return either to_... or from_... in the condition
 
             default:
-                console.log(`Cannot provide condition for invalid sub type: ${subType satisfies never}`)
-                return {}
+                console.log(`Cannot provide condition for invalid sub type: ${subType satisfies never}`);
+                return {};
         }
     }
 
@@ -139,40 +151,77 @@ export class SlitherEventSub {
             case 'channel.hype_train.begin':
             case 'channel.hype_train.end':
             case 'channel.hype_train.progress':
-                return subCondition.broadcaster_user_id as string
+                return subCondition.broadcaster_user_id as string;
             
             // broadcaster_user_id and user_id
             // TODO: These will remain unsupported until I research into them some more
             case 'channel.chat.message':
             case 'channel.chat.notification':
-                return ''
+                return '';
 
             // user_id only
             case 'user.update':
-                return subCondition.user_id as string
+                return subCondition.user_id as string;
 
             // broadcaster_user_id and moderator_user_id
             case 'channel.follow':
             case 'channel.moderate':
             case 'channel.shoutout.create':
             case 'channel.shoutout.receive':
-                return subCondition.broadcaster_user_id as string
+                return subCondition.broadcaster_user_id as string;
 
             // client_id only
             case 'user.authorization.grant':
             case 'user.authorization.revoke':
-                return ''
+                return '';
 
             // to_broadcaster_user_id only
             case 'channel.raid':
-                return subCondition.to_broadcaster_user_id as string
+                return subCondition.to_broadcaster_user_id as string;
                 // If we somehow want notifications when the user raids another channel then perform
                 // logic and then return either to_... or from_... in the condition
 
             default:
-                console.log(`Cannot provide broadcasterId for invalid sub type: ${subType satisfies never}`)
-                return ''
+                console.log(`Cannot provide broadcasterId for invalid sub type: ${subType satisfies never}`);
+                return '';
         }
+    }
+
+    static getRequiredSubscriptions(channelIds: string[] | string): Set<SlitherEventSubscription> {
+        if(!Array.isArray(channelIds)) channelIds = [channelIds];
+
+        const rtnSet: Set<SlitherEventSubscription> = new Set();
+
+        // For every twitch channel user, add user sub types
+        for(let channelId of channelIds) {
+            for(let alertSubType of this.alertSubscriptionTypes) {
+                rtnSet.add({ 
+                    channel_id: channelId, 
+                    type: alertSubType,
+                    version: this.versionOf(alertSubType),
+                    id: ''
+                });
+            }
+            for(let userMaintenanceType of this.userMaintenanceTypes) {
+                rtnSet.add({ 
+                    channel_id: channelId, 
+                    type: userMaintenanceType,
+                    version: this.versionOf(userMaintenanceType),
+                    id: ''
+                });
+            }
+        }
+        
+        // Add all app sub types for channelId '.', representing the Slither app
+        for(let appMaintenanceType of this.appMaintenanceTypes) {
+            rtnSet.add({ 
+                channel_id: '.', 
+                type: appMaintenanceType,
+                version: this.versionOf(appMaintenanceType),
+                id: ''
+            });
+        }
+        return rtnSet;
     }
 
 }

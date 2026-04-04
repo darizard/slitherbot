@@ -63,22 +63,12 @@ export type TwitchEventNotification = {
 }
 
 //*******************TYPE USED BY DB********************/
-export type SlitherUserEventSubscription = {
+export type SlitherEventSubscription = {
 
-    id: string | null
+    id: string
     channel_id: string
     type: SubscriptionType
     version: string
-    status?: string
-
-}
-
-export type SlitherAppEventSubscription = {
-
-    id: string | null
-    type: SubscriptionType
-    version: string
-    status?: string
 
 }
 

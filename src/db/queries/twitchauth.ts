@@ -1,8 +1,8 @@
-import { Selectable, Insertable, sql, UpdateResult } from 'kysely'
-import { DB } from 'kysely-codegen'
-import { db } from '../database.js'
-import { jsonArrayFrom } from 'kysely/helpers/mysql'
-import { TwitchAuthAppToken } from '../../types/authtypes.js'
+import { Selectable, Insertable, sql, UpdateResult } from 'kysely';
+import { DB } from 'kysely-codegen';
+import { db } from '../database.js';
+import { jsonArrayFrom } from 'kysely/helpers/mysql';
+import { TwitchAuthAppToken } from '../../types/authtypes.js';
 
 /************************************
  * Twitch-Auth-Related database queries
@@ -12,7 +12,7 @@ export async function getSlitherAppToken(): Promise<string | undefined> {
 
     return (await db.selectFrom('AppInfo')
         .select('app_access_token')
-        .executeTakeFirst())?.app_access_token
+        .executeTakeFirst())?.app_access_token;
 
 }
 
@@ -23,7 +23,7 @@ export async function updateSlitherAppToken(token: TwitchAuthAppToken): Promise<
                expires_in: token.expires_in,
                obtainment_timestamp: Date.now()
          })
-        .executeTakeFirst()
+        .executeTakeFirst();
 
 }
 
@@ -37,8 +37,8 @@ export async function getActiveUsers(): Promise<Selectable<DB['Users']>[]> {
                 builder.selectFrom('Users').select('scopes')
             ).as('Users')
         ])
-        .where('refresh_token', '!=', '')
-        .execute()
+            .where('refresh_token', '!=', '')
+        .execute();
 
 }
 
@@ -46,11 +46,12 @@ export async function getActiveChannels(): Promise<string[]> {
 
     const objArr = await db.selectFrom('Users')
                             .select('channel_id')
-                            .execute()
+                                .where('refresh_token', '!=', '')
+                            .execute();
 
-    const strArr: string[] = []
-    objArr.forEach((item) => strArr.push(item.channel_id))
-    return strArr
+    const strArr: string[] = [];
+    objArr.forEach((item) => strArr.push(item.channel_id));
+    return strArr;
 }
 
 export async function getAccessTokens(tokens: string[] | string): Promise<Pick<Selectable<DB['Users']>, 'channel_id' | 'access_token' | 'refresh_token'>[]> {
@@ -62,7 +63,7 @@ export async function getAccessTokens(tokens: string[] | string): Promise<Pick<S
         .select('access_token')
         .select('refresh_token')
         .where('access_token', 'in', tokensArr)
-        .execute()
+        .execute();
 
 }
 
@@ -73,7 +74,7 @@ export async function getAllAccessTokens(): Promise<Pick<Selectable<DB['Users']>
         .select('access_token')
         .select('refresh_token')
         .where('access_token', '!=', '')
-        .execute()
+        .execute();
 
 }
 
@@ -96,7 +97,7 @@ export async function clearAccessTokensForUser(channelIds: string[] | string) {
             obtainment_timestamp: -1
         })
         .where('channel_id', 'in', channelIds)
-        .execute()
+        .execute();
 
 }
 
@@ -105,7 +106,7 @@ export async function getFullUserByChannelId(channelId: string): Promise<Selecta
     return await db.selectFrom('Users')
         .selectAll()
         .where('channel_id', '=', channelId)
-        .executeTakeFirst()
+        .executeTakeFirst();
 
 }
 
@@ -114,7 +115,7 @@ export async function getLimitedUserByChannelId(channelId: string): Promise<Pick
     return await db.selectFrom('Users')
         .select(['channel_id', 'scopes'])
         .where('channel_id', '=', channelId)
-        .executeTakeFirst()
+        .executeTakeFirst();
 
 }
 
@@ -129,8 +130,8 @@ export async function upsertUsers(users: Insertable<DB['Users']>[] | Insertable<
             obtainment_timestamp: sql`VALUES(obtainment_timestamp)`,
             refresh_token: sql`VALUES(refresh_token)`
         })
-    .execute()
+    .execute();
 
 }
 
-export * as default from './twitchauth.js'
+export * as default from './twitchauth.js';
