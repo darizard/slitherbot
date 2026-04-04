@@ -22,7 +22,7 @@ import { SlitherEventSub } from '../classes/eventsub.js'
 
 // Direct DB queries
 import { getAlertsTokenForUser, requiresLogin, requireLogin } from '../db/queries/slitherauth.js'
-import { TwitchEventSubNotification, WebhookCallbackChallengeRequest } from '../types/eventsubtypes.js'
+import { TwitchEventNotification, WebhookCallbackChallengeRequest } from '../types/eventsubtypes.js'
 
 const AUTH_REDIRECT_URI = new URL(`https://${sslConfig.hostName}/slither/oauth`)
 const AUTH_STATES = new Set<string>
@@ -81,7 +81,7 @@ router.post('/event', rawParser, async (req, res) => {
 	if(messageType === 'webhook_callback_verification') {
 
 		const challengeReq: WebhookCallbackChallengeRequest = req.body
-
+		
 		// We need to register the EventSub subscription. First, respond to Twitch's auth challenge
 		res.set('Content-Type', 'text/plain')
 		   .set('Content-Length', `${req.body.challenge.length}`)
@@ -117,7 +117,6 @@ router.post('/event', rawParser, async (req, res) => {
 		return
 	}
 	
-	// TODO: Support subscription revocations
 	/***************************SUBSCRIPTION REVOKED BY TWITCH******************************************************
 	* Subscriptions can be revoked by Twitch for the following reasons:
 	*  	- 'user_removed': User no longer exists
@@ -137,7 +136,7 @@ router.post('/event', rawParser, async (req, res) => {
 		console.log(`Subscription revoked by Twitch! Reason: ${req.body.subscription.status}`)
 		console.log(`Full message body: ${JSON.stringify(req.body)}`)
 
-		handleDisabledSubscription(req.body.subscription as TwitchEventSubNotification)
+		handleDisabledSubscription(req.body.subscription as TwitchEventNotification)
 
 		return
 	}

@@ -1,7 +1,7 @@
-import { SlitherUserEventSubscription, SlitherAppEventSubscription, SubscriptionType } from '../../types/eventsubtypes.js'
+import { SlitherUserEventSubscription, SlitherAppEventSubscription, SubscriptionType, CreateSubscriptionRequestBody } from '../../types/eventsubtypes.js'
 import { db } from '../database.js'
 import { DB } from 'kysely-codegen'
-import { Insertable, InsertResult, Selectable } from 'kysely'
+import { sql, Insertable, InsertResult, Selectable } from 'kysely'
 import { SlitherEventSub } from '../../classes/eventsub.js'
 
 export async function getAllUserSubscriptions(): Promise<Set<SlitherUserEventSubscription>> {
@@ -40,23 +40,23 @@ export async function getAllAppSubscriptions(): Promise<Set<SlitherAppEventSubsc
 }
 
 // Insert EventSub subscriptions into the database only after responding to the webhook callback challenge 
-export async function upsertUserEventSub(sub: Insertable<DB['UserEventSubs']> | Insertable<DB['UserEventSubs']>[]): Promise<InsertResult[] | undefined> {
-    if(!Array.isArray(sub)) sub = [sub]
+export async function upsertUserEventSub(subs: Insertable<DB['UserEventSubs']> | Insertable<DB['UserEventSubs']>[]): Promise<InsertResult[] | undefined> {
+    if(!Array.isArray(subs)) subs = [subs]
 
     return await db.insertInto('UserEventSubs')
-                    .values(sub)
-                        .onDuplicateKeyUpdate(({ ref }) => ({
-                            id: ref('id')
-                        }))
+                    .values(subs)
+                        .onDuplicateKeyUpdate({
+                            id: sql`VALUES(id)`
+                        })
                     .execute()
 
 }
 
-export async function upsertAppEventSub(sub: Insertable<DB['AppEventSubs']> | Insertable<DB['AppEventSubs']>[]): Promise<InsertResult[] | undefined> {
-    if(!Array.isArray(sub)) sub = [sub]
+export async function upsertAppEventSub(subs: Insertable<DB['AppEventSubs']> | Insertable<DB['AppEventSubs']>[]): Promise<InsertResult[] | undefined> {
+    if(!Array.isArray(subs)) subs = [subs]
 
     return await db.insertInto('AppEventSubs')
-                    .values(sub)
+                    .values(subs)
                         .onDuplicateKeyUpdate(({ ref }) => ({
                             id: ref('id')
                         }))
@@ -64,11 +64,47 @@ export async function upsertAppEventSub(sub: Insertable<DB['AppEventSubs']> | In
 
 }
 
-export async function initRequiredUserSubs(channelId: string): Promise<InsertResult[]> {
+// Ensure that all of the required subs for the given channels have an entry in the database via INSERT IGNORE
+export async function initRequiredUserSubs(channelIds: string | string[]): Promise<InsertResult | InsertResult[]> {
 
-    const insertArr: { channel_id: string, type: SubscriptionType, version: string, id?: string }[] = []
+    if(!Array.isArray(channelIds)) channelIds = [channelIds]
 
-    for(let requiredType of SlitherEventSub.requiredUserTypes) {
+    const insertArr: { channel_id: string, type: SubscriptionType, version: string, id: null }[] = []
+
+    // Loop runs (channelIds.size * SlitherEventSub.requiredUserTypes) times = O(N * 1) = O(N)
+    for(let channelId of channelIds) {
+        for(let requiredType of SlitherEventSub.requiredUserTypes) {
+            const version = SlitherEventSub.versionOf(requiredType)
+            if(!version) {
+                // TODO: Elevate logging as a critical bug
+                console.error(`During upsert of required user types could not identify version for sub type ${requiredType}. Investigate.`)
+                continue
+            }
+    
+            insertArr.push({
+                channel_id: channelId,
+                type: requiredType,
+                version: version,
+                id: null
+            })
+        }
+    }
+
+    const insertResult = await db.insertInto('UserEventSubs')
+                                    .values(insertArr)
+                                    .ignore()
+                                    .execute()
+
+    if(insertArr.length === 1) return insertResult[0]
+    return insertResult
+
+}
+
+export async function initRequiredAppSubs(): Promise<InsertResult[]> {
+
+    const insertArr: { type: SubscriptionType, version: string, id: null }[] = []
+
+    for(let requiredType of SlitherEventSub.requiredAppTypes) {
         const version = SlitherEventSub.versionOf(requiredType)
         if(!version) {
             // TODO: Elevate logging as a critical bug
@@ -77,17 +113,53 @@ export async function initRequiredUserSubs(channelId: string): Promise<InsertRes
         }
 
         insertArr.push({
-            channel_id: channelId,
             type: requiredType,
-            version: version
+            version: version,
+            id: null
         })
     }
 
-    return await db.insertInto('UserEventSubs')
-            .values(insertArr)
-                .onDuplicateKeyUpdate({ id: null })
-            .execute()
+    return await db.insertInto('AppEventSubs')
+                    .values(insertArr)
+                    .ignore()
+                    .execute()
 
+}
+
+export async function getNullUserSubs(channelIds: string | string[]): Promise<Set<{ channel_id: string, type: SubscriptionType }>> {
+
+    const dbUserSubs = await db.selectFrom('UserEventSubs')
+                                .select('channel_id')
+                                .select('type')
+                                    .where('channel_id', 'in', channelIds)
+                                    .where('type', 'in', [...SlitherEventSub.requiredUserTypes])
+                                    .where('id', 'is', null)
+                                .execute()
+
+        const returnSet = new Set<{ channel_id: string, type: SubscriptionType }>()
+        dbUserSubs.forEach((dbUserSub) => {
+
+            returnSet.add({
+                channel_id: dbUserSub.channel_id,
+                type: dbUserSub.type as SubscriptionType
+            })
+        })
+
+        return returnSet
+}
+
+export async function getNullAppSubTypes(): Promise<Set<SubscriptionType>> {
+
+    const dbAppSubs = await db.selectFrom('AppEventSubs')
+                                .select('type')
+                                    .where('id', 'is', null)
+                                    .where('type', 'in', [...SlitherEventSub.requiredAppTypes])
+                                .execute()
+
+    const returnSet = new Set<SubscriptionType>()
+    dbAppSubs.forEach((dbAppSub) => { returnSet.add(dbAppSub.type as SubscriptionType) })
+
+    return returnSet
 }
 
 export async function getUserEventSubIds(filter?: Partial<Selectable<DB['UserEventSubs']>>): Promise<(string | null)[] | undefined> {

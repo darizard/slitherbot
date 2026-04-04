@@ -49,7 +49,7 @@ export type EventSubTransport = {
 }
 
 //**************EVENT NOTIFICATION HANDLING**************/
-export type TwitchEventSubNotification = {
+export type TwitchEventNotification = {
 
     id: string
     status: string

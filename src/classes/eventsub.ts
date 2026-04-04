@@ -65,11 +65,11 @@ export class SlitherEventSub {
         secret: twitchConfig.eventsubSecret
     })
 
-    static versionOf(type: SubscriptionType): string | undefined {
-        return this.#subVersionMap.get(type)
+    static versionOf(type: SubscriptionType): string {
+        return this.#subVersionMap.get(type) as string
     }
 
-    static conditionOf(channelId: string, subType: SubscriptionType): EventSubCondition | undefined {
+    static conditionOf(subType: SubscriptionType, channelId?: string): EventSubCondition {
         switch(subType) {
             // broadcaster_user_id only
             case 'channel.bits.use':
@@ -89,7 +89,7 @@ export class SlitherEventSub {
             // TODO: These will remain unsupported until I research into them some more
             case 'channel.chat.message':
             case 'channel.chat.notification':
-                return undefined
+                return { }
 
             // user_id only
             case 'user.update':
@@ -115,11 +115,11 @@ export class SlitherEventSub {
 
             default:
                 console.log(`Cannot provide condition for invalid sub type: ${subType satisfies never}`)
-                return
+                return {}
         }
     }
 
-    static broadcasterOf(subCondition: EventSubCondition, subType: SubscriptionType): string | undefined {
+    static broadcasterOf(subCondition: EventSubCondition, subType: SubscriptionType): string {
 
         switch(subType) {
             // broadcaster_user_id only
@@ -134,39 +134,39 @@ export class SlitherEventSub {
             case 'channel.hype_train.begin':
             case 'channel.hype_train.end':
             case 'channel.hype_train.progress':
-                return subCondition.broadcaster_user_id
+                return subCondition.broadcaster_user_id as string
             
             // broadcaster_user_id and user_id
             // TODO: These will remain unsupported until I research into them some more
             case 'channel.chat.message':
             case 'channel.chat.notification':
-                return undefined
+                return ''
 
             // user_id only
             case 'user.update':
-                return subCondition.user_id
+                return subCondition.user_id as string
 
             // broadcaster_user_id and moderator_user_id
             case 'channel.follow':
             case 'channel.moderate':
             case 'channel.shoutout.create':
             case 'channel.shoutout.receive':
-                return subCondition.broadcaster_user_id
+                return subCondition.broadcaster_user_id as string
 
             // client_id only
             case 'user.authorization.grant':
             case 'user.authorization.revoke':
-                return undefined
+                return ''
 
             // to_broadcaster_user_id only
             case 'channel.raid':
-                return subCondition.to_broadcaster_user_id
+                return subCondition.to_broadcaster_user_id as string
                 // If we somehow want notifications when the user raids another channel then perform
                 // logic and then return either to_... or from_... in the condition
 
             default:
                 console.log(`Cannot provide broadcasterId for invalid sub type: ${subType satisfies never}`)
-                return
+                return ''
         }
 
     }
