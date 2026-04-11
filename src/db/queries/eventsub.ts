@@ -9,7 +9,7 @@ export async function getAllSubscriptions(): Promise<Set<SlitherEventSubscriptio
         .selectAll()
         .execute();
 
-    const typedSubs: Set<SlitherEventSubscription> = new Set()
+    const typedSubs: Set<SlitherEventSubscription> = new Set();
     allSubs.forEach((dbSub) => {
         typedSubs.add({
             channel_id: dbSub.channel_id,
@@ -28,7 +28,7 @@ export async function getAllUserSubscriptions(): Promise<Set<SlitherEventSubscri
             .where('channel_id', '!=', '.')
         .execute();
 
-    const typedSubs: Set<SlitherEventSubscription> = new Set()
+    const typedSubs: Set<SlitherEventSubscription> = new Set();
     allSubs.forEach((dbSub) => {
         typedSubs.add({
             channel_id: dbSub.channel_id,

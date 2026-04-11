@@ -79,13 +79,7 @@ export function init(server: httpsServer) {
 
                 alertsServerWebSockets.add(alertsServerSocket);
                 
-                ws.on('close', (ws) => {  alertsServerWebSockets.delete(alertsServerSocket);  })
-                
-                // TODO: Add the alerts socket to the data structure we're going to use here (time for a HashMap?)
-                // We will probably also need to add another on.('close') callback to remove the object from memory.
-                // This means we should restructure the way we connect these socket wrappers. Maybe remove just the
-                // on.('error') callback rather than all listeners when calling .connect(), then we can transfer any
-                // callbacks the server wants to apply into the instances of these wrappers
+                ws.on('close', () => { alertsServerWebSockets.delete(alertsServerSocket); })
                 break;
 
             case 'controller':            

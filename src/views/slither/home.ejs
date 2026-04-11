@@ -3,7 +3,7 @@
 
 <head>
   <meta charset="UTF-8" />
-  <title>SlitherBot</title>
+  <title>Slither</title>
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <meta name="description" content="" />
   <link rel="icon" href="/slither/media/favicon.ico">
@@ -11,16 +11,33 @@
   <link rel="stylesheet" href="/slither/css/home.css" />
   <!-- For now, stick the access token script in the header and don't load the page until  -->
   <script src="/slither/js/auth.js"></script>
-  <script src="/slither/js/home.js"></script>
 </head>
 
 <body>
   <%- include('./partials/navbar.ejs') %>
-  <div id="slitherbot-home-main">
-      <p>Welcome to Home! Your OBS Alerts URL is:</p>
+  <div id="home-main-container">
+    <div id="alerts-url-container">
+      <input id="alerts-url-field" disabled="true" type="text" value="<%= alertsUrl ? alertsUrl : ''%>">
+      <div id="copy-alerts-url-btn" tabindex="0" role="button" onclick="copyAlertsUrlToClipboard()"><span id="copy-symbol"><span class="square">Copy</span></span></div>
+    </div>
+    <div id="alerts-customization-container">
+      <div id="alerts-categories-container">
+        <div id="alerts-category-btn">
+          Subscriptions
+        </div>
+        <div id="alerts-category-btn">
+          Follows
+        </div>
+      </div>
+      <div id="alert-options-container">
+        Viewer Follows Your Channel
+      </div>
+    </div>
+      <p>Welcome to Home! Paste the above URL into your browser source to start getting alerts.</p>
       <p><%= alertsUrl ? alertsUrl : '' %></p>
   </div>
 
+<script src="/slither/js/home.js"></script>
 </body>
 
 </html>

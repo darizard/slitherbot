@@ -70,7 +70,7 @@ export async function requiresLogin(userId: string | undefined): Promise<boolean
 
 }
 
-export async function requireLogin(twitchId: string, required: boolean): Promise<UpdateResult> {
+export async function setLoginRequiredValue(twitchId: string, required: boolean): Promise<UpdateResult> {
 
     return await db.updateTable('SlitherIDs')
                     .set('require_login', required ? 1 : 0)

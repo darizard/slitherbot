@@ -9,10 +9,11 @@ import { ssl as sslConfig, twitch as twitchConfig, ws as wsConfig } from '../con
 // Internal abstraction classes
 import { SlitherControllerClientWebSocket } from '../classes/slitherws.js';
 
-// Internal types
+// Internal TS types and runtime type guards
 import type { TwitchAuthCodeRequest } from '../types/authtypes.js';
 import { isTwitchAuthError, isTwitchAuthCode } from '../types/authtypes.js';
 import type { AlertMessage } from '../types/slitherwstypes.js';
+import { TwitchEventNotification, WebhookCallbackChallengeRequest } from '../types/eventsubtypes.js';
 
 // Internal logic modules
 import { registerSlitherUser, signSlitherToken, verifySlitherToken, refreshSlitherAccessToken, addSlitherTokenCookie, verifyAlertsConnectionToken } from '../services/slitherauth.js';
@@ -21,8 +22,7 @@ import { handleDisabledSubscription, registerNewEventSubscription } from '../ser
 import { SlitherEventSub } from '../classes/eventsub.js';
 
 // Direct DB queries
-import { getAlertsTokenForUser, requiresLogin, requireLogin } from '../db/queries/slitherauth.js';
-import { TwitchEventNotification, WebhookCallbackChallengeRequest } from '../types/eventsubtypes.js';
+import { getAlertsTokenForUser, requiresLogin, setLoginRequiredValue } from '../db/queries/slitherauth.js';
 
 const AUTH_REDIRECT_URI = new URL(`https://${sslConfig.hostName}/slither/oauth`);
 const AUTH_STATES = new Set<string>();
@@ -32,7 +32,7 @@ const jsonParser = bodyParser.json();
 const router = express.Router();
 
 const ws = new SlitherControllerClientWebSocket();
-ws.connect(wsConfig.controllerSecret); // unawaited async
+void ws.connect(wsConfig.controllerSecret);
 
 /**
  * POST request received from Twitch when either:
@@ -180,6 +180,13 @@ router.get('/alerts/:paramToken', async (req, res) => {
 
 });
 
+
+router.get('/alerts', async (req, res) => {
+
+	
+
+});
+
 // Obtain the alerts token for the given user intended for use in an OBS browser source URL. This token is semi-public data.
 router.post('/alerts/token', jsonParser, async (req, res) => {
 
@@ -190,15 +197,6 @@ router.post('/alerts/token', jsonParser, async (req, res) => {
 	if(!alertsToken) return res.status(500).json({error: `Could not obtain alerts token for given user at POT /slither/alerts/token`});
 	
 	return res.status(200).json({ alerts_token: alertsToken });
-
-});
-
-router.get('/alerts', (_req, res) => {
-
-	res.render("slither/alerts", {
-		hostName: sslConfig.hostName,
-		connectionToken: undefined
-	});
 
 });
 
@@ -279,6 +277,8 @@ router.get('/auth/twitch', (_req, res) => {
 
 });
 
+// TODO: Bake this into the default route instead of having an /auth endpoint: If user logged in, redirect to home.
+// 		 If user not logged in, do auth.
 // Serves an auth page the asks the user to authorize Slither to access their Twitch data
 router.get('/auth', async (req, res) => {
 
@@ -296,7 +296,7 @@ router.get('/auth', async (req, res) => {
 // We should use the fetch() API to send this auth code to Twitch's OAuth system after which we will receive the
 // User Access Token in the body of a response. Insert or update the token into the database to allow the user
 // to use this app's features. Then we rediret the user to SlitherBot's home page.
-router.get('/oauth', jsonParser, async (req, res) => {
+router.get('/oauth', async (req, res) => {
 
 	if(typeof req.query['state'] !== 'string' || !AUTH_STATES.has(req.query['state'])) {
 		// TODO: Elevate error as a security risk
@@ -325,7 +325,7 @@ router.get('/oauth', jsonParser, async (req, res) => {
 
 	// Immediately validate the access token to get the userID from Twitch
 	const twitchUserID = await validateUserAccessToken(twitchTokenData.access_token);
-	if(!twitchUserID) return res.status(500).end();
+	if(!twitchUserID) return res.sendStatus(500);
 
 	// Store Twitch access tokens in the database. This function will print a log message to the console in case of a DB error.
 	// Also if we already have an old user access token, be a good client and send a revocation request to Twitch
@@ -343,7 +343,7 @@ router.get('/oauth', jsonParser, async (req, res) => {
 	addSlitherTokenCookie(res, signedAccessToken, 'access');
 
 	// We have now sucessfully logged in the user. If we set the require_login flag in the DB, unset it now.
-	await requireLogin(twitchUserID, false);
+	await setLoginRequiredValue(twitchUserID, false);
 
 	return res.redirect(`/slither/home`);
 });
@@ -393,6 +393,8 @@ router.get('/logout', (_req, res) => {
 
 });
 
+// TODO: For the base route, if Slither can authenticate the user, redirect to home. Otherwise nudge them to authenticate
+// with Twitch
 // GET /slither simply redirects the user to /slither/home
 router.get('/', (_req, res) => {
 
