@@ -2,33 +2,30 @@
  * Handles twitch authentication functionality, including access token retrieval and refresh.
  **********************************************************************************************************************/
 
-import crypto from 'crypto'
-import type { Request } from 'express'
-import { Insertable, InsertResult } from 'kysely'
-import { DB } from "kysely-codegen"
-import twitchsql, { updateSlitherAppToken } from '../db/queries/twitchauth.js'
-import { twitch as twitchConfig, ssl as sslConfig } from "../config.js"
-import type { TwitchAuthUserTokenValidationResponse, TwitchAuthTokenValidationErrorResponse, TwitchRefreshUserTokenRequest, TwitchRefreshUserTokenResponse, 
-              TwitchAuthUserTokenRequest, TwitchAuthUserToken, TwitchAuthAppTokenValidationResponse } from "../types/authtypes.js"
+import { Insertable, InsertResult } from 'kysely';
+import { DB } from "kysely-codegen";
+import twitchsql, { updateSlitherAppToken } from '../db/queries/twitchauth.js';
+import { twitch as twitchConfig, ssl as sslConfig } from "../config.js";
+import type { TwitchAuthUserTokenValidationResponse, TwitchAuthTokenValidationErrorResponse, TwitchRefreshUserTokenRequest, TwitchRefreshUserTokenResponse,               TwitchAuthUserTokenRequest, TwitchAuthUserToken, TwitchAuthAppTokenValidationResponse } from "../types/authtypes.js";
 import { isTwitchAuthUserTokenValidationResponse, isTwitchAuthTokenValidationErrorResponse, isTwitchRefreshUserTokenResponse, 
-         isTwitchAuthAppTokenValidationResponse } from "../types/authtypes.js"
+         isTwitchAuthAppTokenValidationResponse } from "../types/authtypes.js";
 
 export async function getValidatedSlitherAppToken(): Promise<string | undefined> {
 
     // If our app access token exists in db, retrieve and validate it
-    let appToken: string | undefined = await twitchsql.getSlitherAppToken()
+    let appToken: string | undefined = await twitchsql.getSlitherAppToken();
 
     // Return the token from the DB if it can be validated by Twitch (does not attempt to validate if undefined)
-    if(appToken && await validateAppAccessToken(appToken)) return appToken
+    if(appToken && await validateAppAccessToken(appToken)) return appToken;
 
     // If not valid, get a new one and immediately validate it, then return it
-    appToken = await obtainNewAppAccessToken()
-    appToken = await validateAppAccessToken(appToken)
-    if(appToken) return appToken
+    appToken = await obtainNewAppAccessToken();
+    appToken = await validateAppAccessToken(appToken);
+    if(appToken) return appToken;
 
     // Something went wrong...
-    console.log(`Unable to get an app token. Investigate.`)
-    return undefined
+    console.log(`Unable to get an app token. Investigate.`);
+    return undefined;
 
 }
 
@@ -41,15 +38,15 @@ export async function obtainNewAppAccessToken(): Promise<string | undefined> {
                                     grant_type: 'client_credentials'})
     }).then(async (res) => {
 
-        if(!res.ok) return undefined
-        const appTokenFetchResult = await res.json()
-        return appTokenFetchResult
+        if(!res.ok) return undefined;
+        const appTokenFetchResult = await res.json();
+        return appTokenFetchResult;
         
-    })
+    });
 
-    const tokenUpdateResult = await updateSlitherAppToken(appToken)
-    if(tokenUpdateResult.numChangedRows && tokenUpdateResult.numChangedRows > 0n) return appToken?.access_token
-    return
+    const tokenUpdateResult = await updateSlitherAppToken(appToken);
+    if(tokenUpdateResult.numChangedRows && tokenUpdateResult.numChangedRows > 0n) return appToken?.access_token;
+    return;
 
 }
 
@@ -61,17 +58,18 @@ export async function validateAppAccessToken(appToken: string | undefined): Prom
                                                                                         }
     })).then(async (res) => {
 
-        const validationResponse = await res.json()
-        if(res.ok) return validationResponse as TwitchAuthAppTokenValidationResponse
-        console.log(`Validation response not ok: ${JSON.stringify(validationResponse)}`)
-        return validationResponse as TwitchAuthTokenValidationErrorResponse
+        const validationResponse = await res.json();
+        if(res.ok) return validationResponse as TwitchAuthAppTokenValidationResponse;
+        console.log(`Validation response not ok: ${JSON.stringify(validationResponse)}`);
+        return validationResponse as TwitchAuthTokenValidationErrorResponse;
 
     })
 
-    if(isTwitchAuthAppTokenValidationResponse(appTokenInfo)) return appToken
-    if(isTwitchAuthTokenValidationErrorResponse(appTokenInfo)) return
+    if(isTwitchAuthAppTokenValidationResponse(appTokenInfo)) return appToken;
+    if(isTwitchAuthTokenValidationErrorResponse(appTokenInfo)) return;
 
-    console.log(`Unexpected response received from Twitch Auth Token Validation endpoint: ${JSON.stringify(appTokenInfo)}`)
+    // TODO: Logging pass
+    console.log(`Unexpected response received from Twitch Auth Token Validation endpoint: ${JSON.stringify(appTokenInfo)}`);
 
 }
 
@@ -84,14 +82,14 @@ export async function validateAppAccessToken(appToken: string | undefined): Prom
 export async function validateAndRefreshUserAccessTokens(tokens: string | string[] | null = null): Promise<void> {
 
     // If tokens is null, validate all tokens. Otherwise validate the token(s) provided.
-    const tokensToValidate = tokens === null ? await twitchsql.getAllAccessTokens() : await twitchsql.getAccessTokens(tokens)
+    const tokensToValidate = tokens === null ? await twitchsql.getAllAccessTokens() : await twitchsql.getAccessTokens(tokens);
 
     // Internal helper/organization functions defined within this one
-    const invalidAccessTokens = await validateUserAccessTokens(tokensToValidate)
-    const refreshTokenResults = await refreshUserAccessTokens(invalidAccessTokens)
+    const invalidAccessTokens = await validateUserAccessTokens(tokensToValidate);
+    const refreshTokenResults = await refreshUserAccessTokens(invalidAccessTokens);
 
-    const tokensToUpsert: Insertable<DB['Users']>[] = []
-    const channelIDsToClear: string[] = []
+    const tokensToUpsert: Insertable<DB['Users']>[] = [];
+    const channelIDsToClear: string[] = [];
 
     for(let refresh_result of refreshTokenResults) {
         refresh_result.valid ? tokensToUpsert.push({channel_id: refresh_result.channel_id,
@@ -101,11 +99,11 @@ export async function validateAndRefreshUserAccessTokens(tokens: string | string
                                                      scopes: refresh_result.scopes,
                                                      obtainment_timestamp: refresh_result.obtainment_timestamp}) 
 
-                             : channelIDsToClear.push(refresh_result.channel_id)
+                             : channelIDsToClear.push(refresh_result.channel_id);
     }
 
-    if(tokensToUpsert.length > 0) await twitchsql.upsertUsers(tokensToUpsert)
-    if(channelIDsToClear.length > 0) await clearTwitchUserAccessTokens(channelIDsToClear)
+    if(tokensToUpsert.length > 0) await twitchsql.upsertUsers(tokensToUpsert);
+    if(channelIDsToClear.length > 0) await clearTwitchUserAccessTokens(channelIDsToClear);
 
     // ******************************HELPER FUNCTIONS INTERNAL TO OVERALL VALIDATION AND REFRESH******************************
     // Validates the provided User Access Token(s) with the Twitch API /oauth/validate endpoint. Any tokens that Twitch returns
@@ -183,60 +181,10 @@ export async function validateAndRefreshUserAccessTokens(tokens: string | string
 // For a given channel ID or array of channel IDs, clear out all Twitch token data from the database
 export async function clearTwitchUserAccessTokens(channel_ids: string[] | string) {
 
-    const updateResults = await twitchsql.clearAccessTokensForUser(typeof channel_ids === 'string' ? [channel_ids] : channel_ids)
-    console.log(`Invalidated Twitch token data for users: ${typeof channel_ids === 'string' ? channel_ids : JSON.stringify(channel_ids)}`)
-    return updateResults
+    const updateResults = await twitchsql.clearAccessTokensForUser(typeof channel_ids === 'string' ? [channel_ids] : channel_ids);
+    console.log(`Invalidated Twitch token data for users: ${typeof channel_ids === 'string' ? channel_ids : JSON.stringify(channel_ids)}`);
+    return updateResults;
 
-}
-
-type TwitchMessageVerificationOptions = {
-    TWITCH_MESSAGE_ID: string
-    TWITCH_MESSAGE_TIMESTAMP: string
-    TWITCH_MESSAGE_SIGNATURE: string
-}
-
-export function verifyTwitchEventMessage(req: Request): boolean {
-
-    const options: TwitchMessageVerificationOptions = {
-        TWITCH_MESSAGE_ID   : 'Twitch-Eventsub-Message-Id'.toLowerCase(),
-        TWITCH_MESSAGE_TIMESTAMP: 'Twitch-Eventsub-Message-Timestamp'.toLowerCase(),
-        TWITCH_MESSAGE_SIGNATURE: 'Twitch-Eventsub-Message-Signature'.toLowerCase()
-    }
-
-    const HMAC_PREFIX: string = 'sha256='
-
-    let secret = getSecret()
-    let message = getHmacMessage(req, options)
-    let hmac = HMAC_PREFIX + getHmac(secret, message)
-
-    //*****************HELPER EVENT MESSAGE VERIFICATION FUNCTIONS RECOMMENDED BY TWITCH DOCS*****************/
-
-    // HMAC signature header sent by twitch is of type string according to their docs
-    return verifyMessage(hmac, req.headers[options.TWITCH_MESSAGE_SIGNATURE] as string)
-
-    // Our application's client secret generated on dev.twitch.tv
-    function getSecret(): string {
-        return twitchConfig.eventsubSecret
-    }
-
-
-    function getHmacMessage(req: Request, options: TwitchMessageVerificationOptions): string {
-        return (req.headers[options.TWITCH_MESSAGE_ID] as string + 
-                req.headers[options.TWITCH_MESSAGE_TIMESTAMP] as string +
-                req.body as string)
-    }
-
-    // Get the HMAC
-    function getHmac(secret: string, message: string): string {
-        return crypto.createHmac('sha256', secret)
-                    .update(message)
-                    .digest('hex')
-    }
-
-    // Verify whether our signature matches Twitch's signature
-    function verifyMessage(hmac: string, verifySignature: string): boolean {
-        return crypto.timingSafeEqual(Buffer.from(hmac), Buffer.from(verifySignature))
-    }
 }
 
 export async function fetchUserAccessToken(code: string): Promise<TwitchAuthUserToken> {
@@ -246,14 +194,14 @@ export async function fetchUserAccessToken(code: string): Promise<TwitchAuthUser
         code: `${code}`,
         grant_type: 'authorization_code',
         redirect_uri: `https://${sslConfig.hostName}/slither/oauth`
-    }
+    };
 
     const twitchTokenResponse = await fetch(`https://id.twitch.tv/oauth2/token`, {
         method: 'POST',
         body: new URLSearchParams(tokenRequest)
-    })
+    });
 
-    return await twitchTokenResponse.json() as TwitchAuthUserToken
+    return await twitchTokenResponse.json() as TwitchAuthUserToken;
 }
 
 export async function validateUserAccessToken(access_token: string): Promise<string | undefined> {
@@ -264,21 +212,21 @@ export async function validateUserAccessToken(access_token: string): Promise<str
                                     { Authorization: `OAuth ${access_token}` } }
     ).then(async (res) => {
 
-        return (await res.json()).user_id as string
+        return (await res.json()).user_id as string;
 
     }).catch((validation_err) => {
 
-        console.log(`Error during immediate post-OAuth token validation: ${JSON.stringify(validation_err)}`)
-        return undefined
+        console.log(`Error during immediate post-OAuth token validation: ${JSON.stringify(validation_err)}`);
+        return undefined;
 
-    })
+    });
 
 }
 
 export async function registerTwitchUser(twitchTokenData: TwitchAuthUserToken, userID: string, obtainmentTimestamp: number): Promise<InsertResult[] | void> {
 
     // If the user already has a twitch access / refresh token recorded in our database, send a revocation request to Twitch
-    const oldAccessToken = await twitchsql.getAccessTokenForUser(userID) 
+    const oldAccessToken = await twitchsql.getAccessTokenForUser(userID);
     if(oldAccessToken) {
 
         await fetch(`https://id.twitch.tv/oauth2/revoke`, {
@@ -290,7 +238,7 @@ export async function registerTwitchUser(twitchTokenData: TwitchAuthUserToken, u
                 client_id: twitchConfig.clientId,
                 token: oldAccessToken
             })
-        })
+        });
 
     }
 
@@ -306,9 +254,9 @@ export async function registerTwitchUser(twitchTokenData: TwitchAuthUserToken, u
     }).catch((upsert_err) => {
 
         // TODO: Elevate this error as it indicates an internal issue with our database
-        console.log(`Error during upsert of Twitch UserAccessToken: ${JSON.stringify(upsert_err)}`)
-        return
+        console.log(`Error during upsert of Twitch UserAccessToken: ${JSON.stringify(upsert_err)}`);
+        return;
         
-    })
+    });
 
 }

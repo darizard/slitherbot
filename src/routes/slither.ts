@@ -15,12 +15,14 @@ import { isTwitchAuthError, isTwitchAuthCode } from '../types/authtypes.js';
 import type { AlertMessage } from '../types/slitherwstypes.js';
 import { TwitchEventNotification, WebhookCallbackChallengeRequest } from '../types/eventsubtypes.js';
 
+// Authentication and Authorization Middleware
+import { verifyTwitchEventMessage } from '../middleware/twitchauth.js';
+
 // Internal logic modules
 import { registerSlitherUser, signSlitherToken, verifySlitherToken, refreshSlitherAccessToken, addSlitherTokenCookie, verifyAlertsConnectionToken } from '../services/slitherauth.js';
-import { registerTwitchUser, fetchUserAccessToken, validateUserAccessToken, verifyTwitchEventMessage } from '../services/twitchauth.js';
+import { registerTwitchUser, fetchUserAccessToken, validateUserAccessToken } from '../services/twitchauth.js';
 import { handleDisabledSubscription, registerNewEventSubscription } from '../services/eventsubclient.js';
 import { SlitherEventSub } from '../classes/eventsub.js';
-import { authenticate } from '../middleware/slither.js';
 
 // Direct DB queries
 import { getAlertsTokenForUser, requiresLogin, setLoginRequiredValue } from '../db/queries/slitherauth.js';
@@ -47,37 +49,7 @@ void ws.connect(wsConfig.controllerSecret);
  * 
  * This method must call the appropriate channel point reward
  **/
-router.post('/event', rawParser, async (req, res) => {
-
-	if(!verifyTwitchEventMessage(req)) {
-		// TODO: Elevate log. Who is hitting /event if they are not Twitch?
-		console.log(`Received unverified event message with request URL: ${req.url}`);
-		return res.sendStatus(401);
-	}
-
-	const messageId = req.headers['twitch-eventsub-message-id']?.toString();
-	if(!messageId) {
-		// TODO: Elevate log. Why are we receiving requests verified as being from Twitch that do not have the required header?
-		console.log(`/event request received without message id header.`);
-		return res.sendStatus(400);
-	}
-	const recentMessages = new Set<string>();
-
-	const messageTimestamp = req.headers['twitch-eventsub-message-timestamp'] as string;
-	if(Date.parse(messageTimestamp ?? '') < Date.now() - 1000 * 60 * 10) {
-		// TODO: Elevate logging for both of these cases as a security issue
-		console.log(`Received Twitch message more than 10 minutes old. Investigate.`);
-		return res.sendStatus(204);
-	}
-	if(recentMessages.has(messageId)) {
-		console.log(`Received Twitch message with an id that has been seen before. Investigate.`);
-		return res.sendStatus(204);
-	}
-	// keep recent message ids for 11 minutes to check against. After 10 minutes, any message will automatically not be processed anyway
-	recentMessages.add(messageId);
-	setTimeout(() => {
-		recentMessages.delete(messageId);
-	}, 1000 * 60 * 11);
+router.post('/event', rawParser, verifyTwitchEventMessage, async (req, res) => {
 
 	// Make sure body is parseable json
 	try { req.body = JSON.parse(req.body); }
@@ -178,13 +150,6 @@ router.get('/alerts/:paramToken', async (req, res) => {
 
 	res.render("slither/alerts", { hostName: sslConfig.hostName,
 									connectionToken: alertsJwt });
-
-});
-
-
-router.get('/alerts', async (req, res) => {
-
-	
 
 });
 
@@ -350,9 +315,9 @@ router.get('/oauth', async (req, res) => {
 });
 
 // Protected route. Redirect to /slither/auth if the browser cookies do not contain a valid authentication token.
-router.get('/home', authenticate, async (req, res) => {
+router.get('/home', async (req, res) => {
 
-	let navItems: { label: string, href: string }[] = [];
+	const navItems: { label: string, href: string }[] = [];
 
 	let twitchId = await verifySlitherToken(req.cookies?.access_token, 'access');
 
