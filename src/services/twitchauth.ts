@@ -195,7 +195,7 @@ type TwitchMessageVerificationOptions = {
     TWITCH_MESSAGE_SIGNATURE: string
 }
 
-export function verifyEventMessage(req: Request): boolean {
+export function verifyTwitchEventMessage(req: Request): boolean {
 
     const options: TwitchMessageVerificationOptions = {
         TWITCH_MESSAGE_ID   : 'Twitch-Eventsub-Message-Id'.toLowerCase(),

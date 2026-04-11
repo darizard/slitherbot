@@ -16,25 +16,60 @@
 <body>
   <%- include('./partials/navbar.ejs') %>
   <div id="home-main-container">
+    <p>Welcome to Home! Paste this URL into a browser source to start getting alerts.</p>
     <div id="alerts-url-container">
       <input id="alerts-url-field" disabled="true" type="text" value="<%= alertsUrl ? alertsUrl : ''%>">
-      <div id="copy-alerts-url-btn" tabindex="0" role="button" onclick="copyAlertsUrlToClipboard()"><span id="copy-symbol"><span class="square">Copy</span></span></div>
+      <button id="copy-alerts-url-btn" onclick="copyAlertsUrlToClipboard()"><span id="copy-symbol"><span class="square">Copy</span></span></button>
     </div>
     <div id="alerts-customization-container">
       <div id="alerts-categories-container">
-        <div id="alerts-category-btn">
+        <div class="alerts-category-btn">
           Subscriptions
         </div>
-        <div id="alerts-category-btn">
+        <div class="alerts-category-btn">
           Follows
         </div>
       </div>
       <div id="alert-options-container">
-        Viewer Follows Your Channel
+        <div id="more-alerts-categories-top">
+          Expandable alerts within current category go here
+        </div>
+        <p class="alert-type-description">Viewer Follows Your Channel</p>
+        <div id="alert-settings-section-1">
+          <div id="alert-preview-box"><span class="transparent-checker-pattern"><img id="alert-img" src=""></span></div>
+          <div id="alert-customization-inputs-area">
+            <button id="alert-preview-btn" onclick="previewAlert()">Preview</button>
+            <div id="alert-image-upload"><label for="image-file-input">Alert image: </label><input id="image-file-input" type="file"></div>
+            <div id="alert-audio-upload"><label for="audio-file-input">Alert audio: </label><input id="audio-file-input" type="file"></div>
+            <div id="alert-audio-volume"><input id="audio-volume-input" type="range"></div>
+            <div id="alert-duration"><label for="alert-duration-input">Duration: </label><input id="alert-duration-input" value="sec"></div>
+          </div>
+        </div>
+        <div id="alert-settings-section-2">
+          <input id="alert-text-input"></input>
+          <div id="alert-text-components-area">
+            <!-- Populate with draggable components that represent viewer name, channel name, number of months, etc.
+                 that can be added to the alert text -->
+            <% if(typeof textComponents !== 'undefined') { %>
+              <ul>
+              <% for(const textComponent of textComponents) { %>
+                <li><%= textComponent %></li>
+              <% } %>
+              </ul>
+            <% } %>
+
+            <ul style="list-style-type: none;">
+              <li>viewer</li>
+              <li>channel</li>
+            </ul>
+
+          </div>
+        </div>
+        <div id="more-alerts-categories-bottom">
+          Expandable alerts within current category go here
+        </div>
       </div>
     </div>
-      <p>Welcome to Home! Paste the above URL into your browser source to start getting alerts.</p>
-      <p><%= alertsUrl ? alertsUrl : '' %></p>
   </div>
 
 <script src="/slither/js/home.js"></script>

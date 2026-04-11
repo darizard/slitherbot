@@ -12,7 +12,7 @@
 
 #alerts-url-container {
     display: flex;
-    margin: 10px;
+    margin: 0 0 35px 0;
 
     max-width: 100%;
 
@@ -22,7 +22,7 @@
 }
 
 #alerts-url-field {
-    field-sizing: content;
+    width: 800px;
 
     max-width: 90%;
     min-width: 20%;
@@ -35,6 +35,7 @@
     color: var(--text-color);
 
     font-size: large;
+    text-align: center;
 }
 
 #copy-alerts-url-btn {
@@ -45,6 +46,7 @@
     border-style: outset;
     border-width: 2px;
     border-radius: 20px;
+    border-color: var(--text-color);
 
     padding: 10px;
 
@@ -54,7 +56,7 @@
 
 #copy-alerts-url-btn:focus {
 
-    outline-color: green;
+    outline-color: var(--text-color);
     outline-width: 4px;
     outline-style: solid;
 
@@ -74,26 +76,29 @@
 }
 
 #alerts-customization-container {
-
-    width: 100%;
-
-    margin: 10px;
+    
+    width: 840px;
 
     display: flex;
     flex-direction: row;
+
+    border-style: solid;
+    border-color: white 70%;
+    border-width: 10px;
+
 
 }
 
 #alerts-categories-container {
 
-    width: 25%;
+    width: 200px;
 
     display: flex;
     flex-direction: column;
 
 }
 
-#alerts-category-btn {
+.alerts-category-btn {
 
     background-color: var(--secondary-color);
     color: var(--text-color);
@@ -106,7 +111,7 @@
 
 }
 
-#alerts-category-button:hover {
+.alerts-category-btn:hover {
 
     background-color: var(--darker-secondary);
     cursor: pointer;
@@ -118,6 +123,250 @@
     background-color: var(--primary-color);
     color: var(--text-color);
 
-    width: 75%;
+    width: 640px;
+
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+
+    outline-style: solid;
+    outline-color: var(--darker-secondary);
+    outline-width: 2px;
+    outline-offset: -2px;
 
 }
+
+    #more-alerts-categories-top {
+
+        background-color: darkorange;
+        width: 100%;
+        
+        height: 50px;
+        display: flex;
+        justify-content: center;
+        flex-direction: column;
+        align-items: center;
+
+        outline-style: solid;
+        outline-color: var(--darker-secondary);
+        outline-width: 2px;
+        outline-offset: -2px;
+
+    }
+
+    .alert-type-description {
+
+        color: var(--text-color);
+        font-size: larger;
+
+        text-align: center;
+
+    }
+
+    #alert-settings-section-1 {
+
+        display: flex;
+        
+        width: 620px;
+        padding: 10px;
+
+        flex-direction: row;
+        justify-content: space-between;
+        align-items: center;
+
+        background-color: hsl(from aquamarine h s calc(l - 40));
+
+        outline-style: solid;
+        outline-color: var(--darker-secondary);
+        outline-width: 2px;
+        outline-offset: -2px;
+        
+    }
+
+        #alert-preview-box {
+
+            height: 300px;
+            width: 300px;
+
+            background-image: conic-gradient(#eee 25%, white 0 50%, #eee 0 75%, white 0);
+            background-size: 150px 150px;
+
+            border-style: inset;
+            border-color: hsl(from var(--text-color) h s calc(l - 10));
+            border-width: 3px;
+            border-radius: 10px;
+
+        }
+
+        #alert-customization-inputs-area {
+
+            display: flex;
+            flex-direction: column;
+
+            justify-content: space-evenly;
+            align-items: center;
+
+            width: calc(100% - 320px);
+            height: 100%;
+
+        }
+
+            #alert-preview-btn {
+                field-sizing: content;
+
+                background-color: var(--secondary-color);
+                color: var(--text-color);
+
+                border-style: outset;
+                border-width: 2px;
+                border-radius: 30px;
+
+                padding: 10px;
+
+                font-size: large;
+
+            }
+
+            #alert-preview-btn:hover {
+
+                background-color: var(--darker-secondary);
+                cursor: pointer;
+
+            }
+
+            #alert-preview-btn:focus {
+
+                outline-color: var(--text-color);
+                outline-width: 4px;
+                outline-style: solid;
+
+            }
+
+            #alert-image-upload {
+
+                background-color: var(--secondary-color);
+                width: 300px;
+
+            }
+
+            #alert-audio-upload {
+
+                background-color: var(--secondary-color);
+                width: 300px;
+
+            }
+
+            #alert-audio-volume {
+
+                background-color: var(--secondary-color);
+                width: 300px;
+
+                accent-color: hsl(from var(--secondary-color) h s calc(l - 20));
+
+            }
+
+            #alert-duration {
+
+                background-color: var(--secondary-color);
+                width: 300px;
+
+            }
+
+            #alert-duration-input {
+
+                position: relative;
+                border-radius: 15px;
+                padding: 5px;
+
+            }
+
+
+
+    #alert-settings-section-2 {
+
+        display: flex;
+
+        flex-direction: column;
+        justify-content: space-between;
+        align-items: center;
+
+        background-color: teal;
+        width: 100%;
+
+        padding: 10px 0;
+
+        outline-style: solid;
+        outline-color: var(--darker-secondary);
+        outline-width: 2px;
+        outline-offset: -2px;
+        
+    }
+
+        #alert-text-input {
+
+            width: 500px;
+            text-align: center;
+
+            padding: 10px;
+            border-radius: 15px;
+            
+
+        }
+
+        #alert-text-components-area {
+            
+            display: flex;
+            flex-direction: row;
+
+            justify-content: space-evenly;
+            align-items: center;
+
+        }
+
+            #alert-text-components-area ul {
+                margin: 10px 0 0 0;
+            }
+
+            #alert-text-components-area li {
+
+                /*For now, provide a bullet list of variables available to the current event*/
+                background-color: var(--secondary-color);
+                margin: 10px 0;
+
+            }
+
+    #more-alerts-categories-bottom {
+
+        background-color: darkorange;
+        width: 100%;
+        
+        height: 50px;
+        display: flex;
+        justify-content: center;
+        flex-direction: column;
+        align-items: center;
+
+        outline-style: solid;
+        outline-color: var(--darker-secondary);
+        outline-width: 2px;
+        outline-offset: -2px;
+
+    }
+
+/*
+        <div id="alert-settings-row-2">
+          <div id="alert-text-input"></div>
+          <div id="alert-text-components-area">
+            <!-- Populate with draggable components that represent viewer name, channel name, number of months, etc.
+                 that can be added to the alert text -->
+            <% if(typeof textComponents !== 'undefined') for(const textComponent of textComponents) { %>
+              <div class="alert-text-component"><%= textComponent %></div>
+            <% } %>
+
+          </div>
+        </div>
+        <div id="more-alerts-categories-bottom">
+
+        </div>
+*/

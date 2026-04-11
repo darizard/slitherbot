@@ -17,9 +17,10 @@ import { TwitchEventNotification, WebhookCallbackChallengeRequest } from '../typ
 
 // Internal logic modules
 import { registerSlitherUser, signSlitherToken, verifySlitherToken, refreshSlitherAccessToken, addSlitherTokenCookie, verifyAlertsConnectionToken } from '../services/slitherauth.js';
-import { registerTwitchUser, fetchUserAccessToken, validateUserAccessToken, verifyEventMessage } from '../services/twitchauth.js';
+import { registerTwitchUser, fetchUserAccessToken, validateUserAccessToken, verifyTwitchEventMessage } from '../services/twitchauth.js';
 import { handleDisabledSubscription, registerNewEventSubscription } from '../services/eventsubclient.js';
 import { SlitherEventSub } from '../classes/eventsub.js';
+import { authenticate } from '../middleware/slither.js';
 
 // Direct DB queries
 import { getAlertsTokenForUser, requiresLogin, setLoginRequiredValue } from '../db/queries/slitherauth.js';
@@ -48,7 +49,7 @@ void ws.connect(wsConfig.controllerSecret);
  **/
 router.post('/event', rawParser, async (req, res) => {
 
-	if(!verifyEventMessage(req)) {
+	if(!verifyTwitchEventMessage(req)) {
 		// TODO: Elevate log. Who is hitting /event if they are not Twitch?
 		console.log(`Received unverified event message with request URL: ${req.url}`);
 		return res.sendStatus(401);
@@ -349,7 +350,7 @@ router.get('/oauth', async (req, res) => {
 });
 
 // Protected route. Redirect to /slither/auth if the browser cookies do not contain a valid authentication token.
-router.get('/home', async (req, res) => {
+router.get('/home', authenticate, async (req, res) => {
 
 	let navItems: { label: string, href: string }[] = [];
 

@@ -18,10 +18,9 @@ body {
 }
 
 .link-button {
-    /* Shouldn't need these as they are defined in <body>
     background-color: var(--secondary-color);
     color: var(--text-color);
-    */
+    
     border: none;
     border-radius: 8px;
     cursor: pointer;

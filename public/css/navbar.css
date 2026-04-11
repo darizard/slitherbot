@@ -45,7 +45,7 @@
 
 .navbar a:focus {
 
-    outline-color: green;
+    outline-color: var(--text-color);
     outline-width: 4px;
     outline-style: solid;
     outline-offset: -4px;
