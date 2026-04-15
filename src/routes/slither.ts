@@ -10,23 +10,24 @@ import { ssl as sslConfig, twitch as twitchConfig, ws as wsConfig } from '../con
 import { SlitherControllerClientWebSocket } from '../classes/slitherws.js';
 
 // Internal TS types and runtime type guards
-import type { TwitchAuthCodeRequest } from '../types/authtypes.js';
+import type { SlitherAuthRequest, TwitchAuthCodeRequest } from '../types/authtypes.js';
 import { isTwitchAuthError, isTwitchAuthCode } from '../types/authtypes.js';
 import type { AlertMessage } from '../types/slitherwstypes.js';
 import { TwitchEventNotification, WebhookCallbackChallengeRequest } from '../types/eventsubtypes.js';
 
 // Authentication and Authorization Middleware
 import { verifyTwitchEventMessage } from '../middleware/twitchauth.js';
+import { authenticateSlitherUser } from '../middleware/slitherauth.js';
 
 // Internal logic modules
-import { registerSlitherUser, signSlitherToken, verifySlitherToken, refreshSlitherAccessToken, addSlitherTokenCookie, verifyAlertsConnectionToken } from '../services/slitherauth.js';
+import { registerSlitherUser, signSlitherToken, verifySlitherToken, addSlitherTokenCookie, verifyAlertsConnectionToken } from '../services/slitherauth.js';
 import { registerTwitchUser, fetchUserAccessToken, validateUserAccessToken } from '../services/twitchauth.js';
 import { handleDisabledSubscription, registerNewEventSubscription } from '../services/eventsubclient.js';
 import { SlitherEventSub } from '../classes/eventsub.js';
 import { SlitherEventAlerts } from '../classes/eventalerts.js';
 
 // Direct DB queries
-import { getAlertsTokenForUser, requiresLogin, setLoginRequiredValue } from '../db/queries/slitherauth.js';
+import slithersql from '../db/queries/slitherauth.js';
 
 const AUTH_REDIRECT_URI = new URL(`https://${sslConfig.hostName}/slither/oauth`);
 const AUTH_STATES = new Set<string>();
@@ -160,7 +161,7 @@ router.post('/alerts/token', jsonParser, async (req, res) => {
 	const userId = await verifySlitherToken(req.cookies?.access_token, 'access');
 	if(!userId) return res.status(401).json({error: `Invalid access token when requesting alerts token at POST /slither/alerts/token`});
 
-	const alertsToken = await getAlertsTokenForUser(userId);
+	const alertsToken = await slithersql.getAlertsTokenForUser(userId);
 	if(!alertsToken) return res.status(500).json({error: `Could not obtain alerts token for given user at POT /slither/alerts/token`});
 	
 	return res.status(200).json({ alerts_token: alertsToken });
@@ -310,46 +311,22 @@ router.get('/oauth', async (req, res) => {
 	addSlitherTokenCookie(res, signedAccessToken, 'access');
 
 	// We have now sucessfully logged in the user. If we set the require_login flag in the DB, unset it now.
-	await setLoginRequiredValue(twitchUserID, false);
+	await slithersql.setLoginRequiredValue(twitchUserID, false);
 
 	return res.redirect(`/slither/home`);
 });
 
 // Protected route. Redirect to /slither/auth if the browser cookies do not contain a valid authentication token.
-router.get('/home', async (req, res) => {
+router.get('/home', authenticateSlitherUser, async (req: SlitherAuthRequest, res) => {
 
-	const navItems: { label: string, href: string }[] = [];
-	const alertCategories = SlitherEventAlerts.alertCategories;
-
-	let twitchId = await verifySlitherToken(req.cookies?.access_token, 'access');
-
-	if(await requiresLogin(twitchId)) {
-
-		res.clearCookie('access_token');
-		res.clearCookie('refresh_token');
-		return res.redirect(`/slither/auth`);
-
-	}
-
-	if(!twitchId) {
-		const refreshResult = await refreshSlitherAccessToken(req.cookies?.refresh_token);
-		if(!refreshResult || !refreshResult.accessToken) return res.redirect(`/slither/auth`);
-
-		addSlitherTokenCookie(res, refreshResult.accessToken, 'access');
-
-		twitchId = refreshResult.userId;
-
-	}
-
-	navItems.push({href: `/slither/logout`, label: 'Logout'});
-
-	const alertsToken = await getAlertsTokenForUser(twitchId);
+	const navItems: { label: string, href: string }[] = [{href: `/slither/logout`, label: 'Logout'}];
+	const alertsToken = await slithersql.getAlertsTokenForUser(req.twitchId);
 	const alertsUrl = alertsToken ? `https://${sslConfig.hostName}/slither/alerts/${alertsToken}` : '';
 
 	res.render(`slither/home`, {
 		alertsUrl: alertsUrl,
 		navItems: navItems,
-		alertCategories: alertCategories
+		alertCategories: SlitherEventAlerts.alertCategories
 	});
 	
 });
