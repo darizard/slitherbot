@@ -24,10 +24,10 @@ import { registerSlitherUser, signSlitherToken, verifySlitherToken, addSlitherTo
 import { registerTwitchUser, fetchUserAccessToken, validateUserAccessToken } from '../services/twitchauth.js';
 import { handleDisabledSubscription, registerNewEventSubscription } from '../services/eventsubclient.js';
 import { SlitherEventSub } from '../classes/eventsub.js';
-import { SlitherEventAlerts } from '../classes/eventalerts.js';
 
 // Direct DB queries
 import slithersql from '../db/queries/slitherauth.js';
+import eventalertssql from '../db/queries/eventalerts.js';
 
 const AUTH_REDIRECT_URI = new URL(`https://${sslConfig.hostName}/slither/oauth`);
 const AUTH_STATES = new Set<string>();
@@ -323,10 +323,12 @@ router.get('/home', authenticateSlitherUser, async (req: SlitherAuthRequest, res
 	const alertsToken = await slithersql.getAlertsTokenForUser(req.twitchId);
 	const alertsUrl = alertsToken ? `https://${sslConfig.hostName}/slither/alerts/${alertsToken}` : '';
 
+	const alertsMap = eventalertssql.getAlertsByCategory(req.twitchId);
+
 	res.render(`slither/home`, {
 		alertsUrl: alertsUrl,
 		navItems: navItems,
-		alertCategories: SlitherEventAlerts.alertCategories
+		alerts: alertsMap
 	});
 	
 });
