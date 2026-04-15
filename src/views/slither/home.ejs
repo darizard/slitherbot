@@ -16,6 +16,7 @@
 <body>
   <%- include('./partials/navbar.ejs') %>
   <div id="home-main-container">
+
     <p>Welcome to Home! Paste this URL into a browser source to start getting alerts.</p>
     <div id="alerts-url-container">
       <input id="alerts-url-field" disabled="true" type="text" value="<%= alertsUrl ? alertsUrl : ''%>">
@@ -23,12 +24,13 @@
     </div>
     <div id="alerts-customization-container">
       <div id="alerts-categories-container">
+<% if(typeof alertCategories !== 'undefined') { 
+  for(let category of alertCategories) { %>
         <div class="alerts-category-btn">
-          Subscriptions
+          <%= category %>
         </div>
-        <div class="alerts-category-btn">
-          Follows
-        </div>
+  <% }
+} %>
       </div>
       <div id="alert-options-container">
         <div id="more-alerts-categories-top">

@@ -23,6 +23,7 @@ import { registerSlitherUser, signSlitherToken, verifySlitherToken, refreshSlith
 import { registerTwitchUser, fetchUserAccessToken, validateUserAccessToken } from '../services/twitchauth.js';
 import { handleDisabledSubscription, registerNewEventSubscription } from '../services/eventsubclient.js';
 import { SlitherEventSub } from '../classes/eventsub.js';
+import { SlitherEventAlerts } from '../classes/eventalerts.js';
 
 // Direct DB queries
 import { getAlertsTokenForUser, requiresLogin, setLoginRequiredValue } from '../db/queries/slitherauth.js';
@@ -318,6 +319,7 @@ router.get('/oauth', async (req, res) => {
 router.get('/home', async (req, res) => {
 
 	const navItems: { label: string, href: string }[] = [];
+	const alertCategories = SlitherEventAlerts.alertCategories;
 
 	let twitchId = await verifySlitherToken(req.cookies?.access_token, 'access');
 
@@ -346,7 +348,8 @@ router.get('/home', async (req, res) => {
 
 	res.render(`slither/home`, {
 		alertsUrl: alertsUrl,
-		navItems: navItems
+		navItems: navItems,
+		alertCategories: alertCategories
 	});
 	
 });

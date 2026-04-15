@@ -1,3 +1,7 @@
+/* TODO: z-index attributes are currently used as a temporary patch. Look at relative positioning
+         strategies and see if there is a better way to display these (currently just the "copy")
+         text) */
+
 #home-main-container {
     display: flex;
     flex-direction: column;
@@ -52,6 +56,8 @@
 
     font-size: larger;
 
+    z-index: -1;
+
 }
 
 #copy-alerts-url-btn:focus {
@@ -72,6 +78,8 @@
 #copy-symbol {
 
     position: relative;
+
+    z-index: -1;
 
 }
 
@@ -354,19 +362,44 @@
 
     }
 
-/*
-        <div id="alert-settings-row-2">
-          <div id="alert-text-input"></div>
-          <div id="alert-text-components-area">
-            <!-- Populate with draggable components that represent viewer name, channel name, number of months, etc.
-                 that can be added to the alert text -->
-            <% if(typeof textComponents !== 'undefined') for(const textComponent of textComponents) { %>
-              <div class="alert-text-component"><%= textComponent %></div>
-            <% } %>
+#under-construction {
 
-          </div>
-        </div>
-        <div id="more-alerts-categories-bottom">
+    display: flex;
+    flex-direction: row;
+    justify-content: center;
+    align-items: center;
 
-        </div>
-*/
+    text-align: center;
+    font-size: larger;
+
+}
+
+.triangle {
+
+    z-index: -1;
+
+    position: relative;
+
+    text-align: center;
+    vertical-align: middle;
+    color: black;
+
+    width: 0;
+    height: 0;
+
+    border-left: 15px solid transparent;
+    border-right: 15px solid transparent;
+    
+    border-bottom: 30px solid yellow;
+
+}
+
+.triangle * {
+
+    z-index: -1;
+    
+    position: absolute;
+    top: 5px;
+    left: -4px;
+
+}
