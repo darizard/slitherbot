@@ -56,8 +56,6 @@
 
     font-size: larger;
 
-    z-index: -1;
-
 }
 
 #copy-alerts-url-btn:focus {
@@ -78,8 +76,6 @@
 #copy-symbol {
 
     position: relative;
-
-    z-index: -1;
 
 }
 
@@ -196,16 +192,30 @@
 
             height: 300px;
             width: 300px;
+            max-height: 100%;
+            max-width: 100%;
+
+            display: flex;
+            justify-content: center;
+            align-items: center;
 
             background-image: conic-gradient(#eee 25%, white 0 50%, #eee 0 75%, white 0);
             background-size: 150px 150px;
 
-            border-style: inset;
-            border-color: hsl(from var(--text-color) h s calc(l - 10));
-            border-width: 3px;
+            border-style: solid;
+            border-color: hsl(from var(--secondary-color) h s calc(l - 10));
             border-radius: 10px;
 
         }
+
+            #alert-img {
+
+                max-width: 300px;
+                max-height: 300px;
+                height: auto;
+                width: auto;
+
+            }
 
         #alert-customization-inputs-area {
 

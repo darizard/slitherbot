@@ -7,6 +7,7 @@
     --background-color: #212121;
 
     --navbar-height: calc(40px + 3rem);
+    --navbar-z-index: 1000;
 
     font-family: Verdana, Geneva, Tahoma, sans-serif;
 }

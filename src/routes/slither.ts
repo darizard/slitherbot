@@ -14,6 +14,7 @@ import type { SlitherAuthRequest, TwitchAuthCodeRequest } from '../types/authtyp
 import { isTwitchAuthError, isTwitchAuthCode } from '../types/authtypes.js';
 import type { AlertMessage } from '../types/slitherwstypes.js';
 import { TwitchEventNotification, WebhookCallbackChallengeRequest } from '../types/eventsubtypes.js';
+import { EventAlertCategory, EventAlertDetails } from '../types/alerttypes.js';
 
 // Authentication and Authorization Middleware
 import { verifyTwitchEventMessage } from '../middleware/twitchauth.js';
@@ -323,12 +324,18 @@ router.get('/home', authenticateSlitherUser, async (req: SlitherAuthRequest, res
 	const alertsToken = await slithersql.getAlertsTokenForUser(req.twitchId);
 	const alertsUrl = alertsToken ? `https://${sslConfig.hostName}/slither/alerts/${alertsToken}` : '';
 
-	const alertsMap = eventalertssql.getAlertsByCategory(req.twitchId);
+	const alertsMap: Map<EventAlertCategory, Set<EventAlertDetails>> = await eventalertssql.getAlertsByCategory(req.twitchId);
+	const alertsSerialized = JSON.stringify([...alertsMap.entries()].map(([key, value]) => [key, [...value]]));
 
-	res.render(`slither/home`, {
-		alertsUrl: alertsUrl,
-		navItems: navItems,
-		alerts: alertsMap
+	const defaultCategory: EventAlertCategory = 'Follows';
+
+	res.render(`slither/home`, { 
+		data: {
+			alertsUrl: alertsUrl,
+			navItems: JSON.stringify(navItems),
+			alerts: alertsSerialized,
+			defaultCategory: defaultCategory
+		}
 	});
 	
 });

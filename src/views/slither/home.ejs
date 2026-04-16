@@ -9,8 +9,13 @@
   <link rel="icon" href="/slither/media/favicon.ico">
   <link rel="stylesheet" href="/slither/css/base-style.css" />
   <link rel="stylesheet" href="/slither/css/home.css" />
-  <!-- For now, stick the access token script in the header and don't load the page until  -->
-  <script src="/slither/js/auth.js"></script>
+  <script>
+    const alerts = <%- data.alerts %>;
+    const navItems = <%- data.navItems %>;
+    
+    const defaultCategory = '<%- data.defaultCategory %>';
+    const alertsUrl = '<%- data.alertsUrl %>';
+  </script>
 </head>
 
 <body>
@@ -19,28 +24,20 @@
 
     <p>Welcome to Home! Paste this URL into a browser source to start getting alerts.</p>
     <div id="alerts-url-container">
-      <input id="alerts-url-field" disabled="true" type="text" value="<%= alertsUrl ? alertsUrl : ''%>">
-      <button id="copy-alerts-url-btn" onclick="copyAlertsUrlToClipboard()"><span id="copy-symbol"><span class="square">Copy</span></span></button>
+      <input id="alerts-url-field" disabled type="text" value="<%= data.alertsUrl ? data.alertsUrl : ''%>">
+      <button id="copy-alerts-url-btn"><span id="copy-symbol"><span class="square">Copy</span></span></button>
     </div>
     <div id="alerts-customization-container">
-      <div id="alerts-categories-container">
-<% if(typeof alertCategories !== 'undefined') { 
-  for(let category of alertCategories) { %>
-        <div class="alerts-category-btn">
-          <%= category %>
-        </div>
-  <% }
-} %>
-      </div>
+      <div id="alerts-categories-container"></div>
       <div id="alert-options-container">
         <div id="more-alerts-categories-top">
           Expandable alerts within current category go here
         </div>
         <p class="alert-type-description">Viewer Follows Your Channel</p>
         <div id="alert-settings-section-1">
-          <div id="alert-preview-box"><span class="transparent-checker-pattern"><img id="alert-img" src=""></span></div>
+          <div id="alert-preview-box"><img id="alert-img" src=""></div>
           <div id="alert-customization-inputs-area">
-            <button id="alert-preview-btn" onclick="previewAlert()">Preview</button>
+            <button id="alert-preview-btn">Preview</button>
             <div id="alert-image-upload"><label for="image-file-input">Alert image: </label><input id="image-file-input" type="file"></div>
             <div id="alert-audio-upload"><label for="audio-file-input">Alert audio: </label><input id="audio-file-input" type="file"></div>
             <div id="alert-audio-volume"><input id="audio-volume-input" type="range"></div>
@@ -48,18 +45,10 @@
           </div>
         </div>
         <div id="alert-settings-section-2">
-          <input id="alert-text-input"></input>
+          <input id="alert-text-input">
           <div id="alert-text-components-area">
             <!-- Populate with draggable components that represent viewer name, channel name, number of months, etc.
                  that can be added to the alert text -->
-            <% if(typeof textComponents !== 'undefined') { %>
-              <ul>
-              <% for(const textComponent of textComponents) { %>
-                <li><%= textComponent %></li>
-              <% } %>
-              </ul>
-            <% } %>
-
             <ul style="list-style-type: none;">
               <li>viewer</li>
               <li>channel</li>
@@ -74,6 +63,8 @@
     </div>
   </div>
 
+<script src="/slither/js/auth.js"></script>
+<script src="/slither/js/navbar.js"></script>
 <script src="/slither/js/home.js"></script>
 </body>
 

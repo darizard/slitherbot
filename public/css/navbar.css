@@ -1,13 +1,15 @@
-.navbar {
+#main-nav {
     background-color: var(--primary-color);
     color: var(--text-color);
     font-size: large;
 
     position: sticky;
     top: 0;
+
+    z-index: var(--navbar-z-index);
 }
 
-.navbar ul {
+#main-nav ul {
     display: flex;
     justify-content: right;
     align-items: stretch;
@@ -16,23 +18,23 @@
     padding: 0;
 }
 
-.navbar li {
+#main-nav li {
     background-color: var(--primary-color);
     padding: 0;
     display: flex;
     flex-direction: row;
 }
 
-.navbar li:hover {
+#main-nav li:hover {
     background-color: var(--lighter-primary);
     cursor: pointer;
 }
 
-.navbar img {
+#main-nav img {
     height: 3rem;
 }
 
-.navbar a {
+#main-nav a {
     display: flex;
 
     justify-content: center;
@@ -43,7 +45,7 @@
     color: var(--text-color);
 }
 
-.navbar a:focus {
+#main-nav a:focus {
 
     outline-color: var(--text-color);
     outline-width: 4px;
