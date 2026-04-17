@@ -1,4 +1,5 @@
 import { SlitherEventAlerts } from '../../classes/eventalerts.js';
+import { SlitherEventSub } from '../../classes/eventsub.js';
 import type { EventAlertCategory, EventAlertDetails } from '../../types/alerttypes.js';
 import type { SubscriptionType } from '../../types/eventsubtypes.js';
 import { db } from '../database.js';
@@ -33,19 +34,23 @@ export async function initEventAlerts(): Promise<void> {
 export async function getAlertsByCategory(twitchId: string | undefined): Promise<Map<EventAlertCategory, Set<EventAlertDetails>>> {
     if(!twitchId) return new Map();
 
-    const idObjArray = await db.selectFrom('EventSubs')
-                             .select('id')
+    const subObjArray = await db.selectFrom('EventSubs')
+                             .select(['id', 'type'])
                              .where('channel_id', '=', twitchId)
                              .execute();
 
-    const subIdsForUser: string[] = []
-    idObjArray.forEach((obj) => { subIdsForUser.push(obj.id); })
+    const subDescriptionMap: Map<string, SubscriptionType> = (() => {
 
+        const rtnMap = new Map();
+        subObjArray.forEach((subObj) => { rtnMap.set(subObj.id, subObj.type); })
+        return rtnMap;
+
+    })();
+    
     const eventAlertsRaw = await db.selectFrom('EventAlerts')
                     .select(['sub_id', 'image_file', 'audio_file', 'alert_text', 'duration', 'audio_volume', 'category'])
-                    .where('sub_id', 'in', subIdsForUser)
+                    .where('sub_id', 'in', subObjArray.map((subObj) => { return subObj.id; }))
                     .execute();
-
     return (() => {
         const rtnMap = new Map<EventAlertCategory, Set<EventAlertDetails>>();
         eventAlertsRaw.forEach((eventAlertRaw) => {
@@ -58,7 +63,8 @@ export async function getAlertsByCategory(twitchId: string | undefined): Promise
                 audioFile: eventAlertRaw.audio_file,
                 alertText: eventAlertRaw.alert_text,
                 alertDuration: eventAlertRaw.duration,
-                audioVolume: eventAlertRaw.audio_volume
+                audioVolume: eventAlertRaw.audio_volume,
+                alertDescription: SlitherEventSub.descriptionOf(subDescriptionMap.get(eventAlertRaw.sub_id) as SubscriptionType)
             });
 
         });

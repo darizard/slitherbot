@@ -25,7 +25,7 @@
     <p>Welcome to Home! Paste this URL into a browser source to start getting alerts.</p>
     <div id="alerts-url-container">
       <input id="alerts-url-field" disabled type="text" value="<%= data.alertsUrl ? data.alertsUrl : ''%>">
-      <button id="copy-alerts-url-btn"><span id="copy-symbol"><span class="square">Copy</span></span></button>
+      <button id="copy-alerts-url-btn">Copy</button>
     </div>
     <div id="alerts-customization-container">
       <div id="alerts-categories-container"></div>
@@ -33,15 +33,22 @@
         <div id="more-alerts-categories-top">
           Expandable alerts within current category go here
         </div>
-        <p class="alert-type-description">Viewer Follows Your Channel</p>
+        <p id="selected-alert-description"></p>
         <div id="alert-settings-section-1">
           <div id="alert-preview-box"><img id="alert-img" src=""></div>
           <div id="alert-customization-inputs-area">
-            <button id="alert-preview-btn">Preview</button>
-            <div id="alert-image-upload"><label for="image-file-input">Alert image: </label><input id="image-file-input" type="file"></div>
-            <div id="alert-audio-upload"><label for="audio-file-input">Alert audio: </label><input id="audio-file-input" type="file"></div>
-            <div id="alert-audio-volume"><input id="audio-volume-input" type="range"></div>
-            <div id="alert-duration"><label for="alert-duration-input">Duration: </label><input id="alert-duration-input" value="sec"></div>
+            <button id="alert-preview-btn">Preview Alert</button>
+            <div id="upload-files-area">
+              <button id="image-file-input-btn">Set Image</button>
+              <button id="audio-file-input-btn">Set Audio</button>
+              <div id="image-preview-box"><img id="alert-img-thumb" src=""></div>
+              <div id="alert-audio-details">
+                <div id="alert-audio-filename" tabindex="-1">filename.mp3</div>
+                <div id="alert-audio-volume"><input id="audio-volume-input" type="range" min="0.01" max="1" step="0.01"></div>
+                <button id="play-audio-btn">Play</button>
+              </div>
+            </div>
+            <div id="alert-duration"><label for="alert-duration-input">Play alert for</label><input id="alert-duration-input" type="text">sec</div>
           </div>
         </div>
         <div id="alert-settings-section-2">
@@ -63,8 +70,12 @@
     </div>
   </div>
 
+
+<input id="image-file-input" class="invisible" type="file">
+<input id="audio-file-input" class="invisible" type="file">
+<audio id="alert-audio" src="" class="invisible"></audio>
+
 <script src="/slither/js/auth.js"></script>
-<script src="/slither/js/navbar.js"></script>
 <script src="/slither/js/home.js"></script>
 </body>
 

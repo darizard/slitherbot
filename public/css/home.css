@@ -2,6 +2,29 @@
          strategies and see if there is a better way to display these (currently just the "copy")
          text) */
 
+button {
+
+    background-color: var(--secondary-color);
+    color: var(--text-color);
+
+}
+
+button:hover {
+
+    background-color: var(--darker-secondary);
+    cursor: pointer;
+
+}
+
+button:focus {
+
+    outline-color: var(--text-color);
+    outline-width: 4px;
+    outline-style: solid;
+    outline-offset: -4px;
+
+}
+
 #home-main-container {
     display: flex;
     flex-direction: column;
@@ -44,9 +67,6 @@
 
 #copy-alerts-url-btn {
 
-    background-color: var(--secondary-color);
-    color: var(--text-color);
-
     border-style: outset;
     border-width: 2px;
     border-radius: 20px;
@@ -58,27 +78,6 @@
 
 }
 
-#copy-alerts-url-btn:focus {
-
-    outline-color: var(--text-color);
-    outline-width: 4px;
-    outline-style: solid;
-
-}
-
-#copy-alerts-url-btn:hover {
-
-    background-color: var(--darker-secondary);
-    cursor: pointer;
-
-}
-
-#copy-symbol {
-
-    position: relative;
-
-}
-
 #alerts-customization-container {
     
     width: 840px;
@@ -86,9 +85,9 @@
     display: flex;
     flex-direction: row;
 
-    border-style: solid;
-    border-color: white 70%;
-    border-width: 10px;
+    /* border-style: solid;
+    border-color: var(--primary-color);
+    border-width: 10px; */
 
 
 }
@@ -99,26 +98,23 @@
 
     display: flex;
     flex-direction: column;
+    justify-content: space-around;
+
+    background-color: var(--primary-color);
 
 }
 
 .alerts-category-btn {
 
-    background-color: var(--secondary-color);
-    color: var(--text-color);
-
     padding: 8px;
+
+    height: calc(100% / 6);
 
     border-style: solid;
     border-width: 2px;
     border-color: var(--darker-secondary);
 
-}
-
-.alerts-category-btn:hover {
-
-    background-color: var(--darker-secondary);
-    cursor: pointer;
+    font-size: larger;
 
 }
 
@@ -143,7 +139,7 @@
 
     #more-alerts-categories-top {
 
-        background-color: darkorange;
+        background-color: var(--lighter-primary);
         width: 100%;
         
         height: 50px;
@@ -159,7 +155,7 @@
 
     }
 
-    .alert-type-description {
+    #selected-alert-description {
 
         color: var(--text-color);
         font-size: larger;
@@ -233,23 +229,16 @@
             #alert-preview-btn {
                 field-sizing: content;
 
-                background-color: var(--secondary-color);
-                color: var(--text-color);
+                min-width: 50%;
+                height: 15%;
 
                 border-style: outset;
                 border-width: 2px;
                 border-radius: 30px;
 
-                padding: 10px;
+                margin: auto;
 
-                font-size: large;
-
-            }
-
-            #alert-preview-btn:hover {
-
-                background-color: var(--darker-secondary);
-                cursor: pointer;
+                font-size: larger;
 
             }
 
@@ -261,41 +250,164 @@
 
             }
 
-            #alert-image-upload {
+            /* Grid of 4: Set Image button, Set Audio button, image thumbnail preview, audio volume slider */
+            #upload-files-area {
 
-                background-color: var(--secondary-color);
-                width: 300px;
+                display: grid;
+                place-items: center;
 
-            }
+                width: 100%;
+                height: 60%;
 
-            #alert-audio-upload {
+                grid-template-columns: 50% 50%;
+                grid-template-rows: 25% 75%;
 
-                background-color: var(--secondary-color);
-                width: 300px;
-
-            }
-
-            #alert-audio-volume {
-
-                background-color: var(--secondary-color);
-                width: 300px;
-
-                accent-color: hsl(from var(--secondary-color) h s calc(l - 20));
+                justify-content: space-evenly;
+                align-items: center;
 
             }
+
+                #image-file-input-btn {
+
+                    border-radius: 20px;
+                    width: 100px;
+                    height: calc(1rem + 20px);
+
+                    font-size: large;
+
+                }
+
+                #image-preview-box {
+
+                    height: 100px;
+                    width: 100px;
+                    max-height: 100%;
+                    max-width: 100%;
+
+                    display: flex;
+                    justify-content: center;
+                    align-items: center;
+
+                    background-image: conic-gradient(#eee 25%, white 0 50%, #eee 0 75%, white 0);
+                    background-size: 50px 50px;
+
+                    border-style: solid;
+                    border-color: hsl(from var(--secondary-color) h s calc(l - 10));
+                    border-radius: 10px;
+
+                }
+
+                    #alert-img-thumb {
+
+                        max-width: 100px;
+                        max-height: 100px;
+                        height: auto;
+                        width: auto;
+
+                    }
+
+                #audio-file-input-btn {
+
+                    border-radius: 20px;
+                    width: 100px;
+                    height: calc(1rem + 20px);
+
+                    font-size: large;
+
+                }
+
+                #alert-audio-details {
+
+                    place-self: center;
+                    height: 100%;
+                    width: 100%;
+
+                    display: flex;
+                    flex-direction: column;
+
+                    justify-content: center;
+                    align-items: center;
+
+                }
+
+                    #alert-audio-filename {
+
+                        text-align: center;
+                        overflow-wrap: anywhere;
+                        overflow-y: auto;
+
+                        width: 100%;
+                        max-height: 50%;
+
+                        padding: 5px 0;
+
+                        background-color: #eee;
+                        color: var(--secondary-color);
+                        
+                        border-style: solid;
+                        border-color: var(--secondary-color);
+                        border-width: 2px;
+                        border-radius: 10px;
+
+                        /* Chrome, Safari, and Edge (Blink/WebKit) */
+                        &::-webkit-scrollbar {
+                            display: none;
+                        }
+
+                        /* Firefox */
+                        scrollbar-width: none;
+
+                        /* Internet Explorer 10+ and legacy Edge */
+                        -ms-overflow-style: none;
+
+                    }
+                
+                    #alert-audio-volume {
+
+                        width: 100%;
+                        height: 25%;
+
+                        display: flex;
+                        justify-content: center;
+
+                        accent-color: hsl(from var(--secondary-color) h s calc(l - 20));
+
+                    }
+
+                    #play-audio-btn {
+
+                        border-radius: 15px;
+                        width: 60px;
+                        height: calc(1rem + 10px);
+
+                    }
 
             #alert-duration {
 
-                background-color: var(--secondary-color);
-                width: 300px;
+                display: flex;
+
+                color: var(--text-color);
+
+                justify-content: center;
+                align-items: center;
+
+                width: 100%;
+                height: 15%;
 
             }
 
             #alert-duration-input {
 
-                position: relative;
-                border-radius: 15px;
+                width: 50px;
+
+                text-align: center;
+
+                border-style: solid;
+                border-radius: 10px;
+                border-color: var(--darker-secondary);
                 padding: 5px;
+
+                margin: 0 5px;
 
             }
 
@@ -356,7 +468,7 @@
 
     #more-alerts-categories-bottom {
 
-        background-color: darkorange;
+        background-color: var(--lighter-primary);
         width: 100%;
         
         height: 50px;
@@ -371,6 +483,14 @@
         outline-offset: -2px;
 
     }
+
+
+
+.invisible {
+
+    display: none;
+
+}
 
 #under-construction {
 

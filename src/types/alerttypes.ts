@@ -8,5 +8,6 @@ export type EventAlertDetails = {
     alertText: string | null
     alertDuration: number | null
     audioVolume: number | null
+    alertDescription: string | null
 
 }
