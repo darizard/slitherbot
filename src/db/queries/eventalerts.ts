@@ -31,44 +31,35 @@ export async function initEventAlerts(): Promise<void> {
 
 }
 
-export async function getAlertsByCategory(twitchId: string | undefined): Promise<Map<EventAlertCategory, Set<EventAlertDetails>>> {
-    if(!twitchId) return new Map();
+export async function getUserAlerts(twitchId: string | undefined): Promise<({ category: EventAlertCategory} & EventAlertDetails)[]> {
 
-    const subObjArray = await db.selectFrom('EventSubs')
-                             .select(['id', 'type'])
-                             .where('channel_id', '=', twitchId)
-                             .execute();
+    if(!twitchId) return [];
 
-    const subDescriptionMap: Map<string, SubscriptionType> = (() => {
-
-        const rtnMap = new Map();
-        subObjArray.forEach((subObj) => { rtnMap.set(subObj.id, subObj.type); })
-        return rtnMap;
-
-    })();
-    
     const eventAlertsRaw = await db.selectFrom('EventAlerts')
-                    .select(['sub_id', 'image_file', 'audio_file', 'alert_text', 'duration', 'audio_volume', 'category'])
-                    .where('sub_id', 'in', subObjArray.map((subObj) => { return subObj.id; }))
+                    .leftJoin('EventSubs', 'EventSubs.id', 'EventAlerts.sub_id')
+                    .select(['EventAlerts.sub_id', 'EventSubs.type', 'EventAlerts.image_file', 
+                             'EventAlerts.audio_file', 'EventAlerts.alert_text', 'EventAlerts.duration', 
+                             'EventAlerts.audio_volume', 'EventAlerts.category'])
+                    .where('EventSubs.channel_id', '=', twitchId)
                     .execute();
-    return (() => {
-        const rtnMap = new Map<EventAlertCategory, Set<EventAlertDetails>>();
-        eventAlertsRaw.forEach((eventAlertRaw) => {
-            const category = eventAlertRaw.category as EventAlertCategory;
-            if(!rtnMap.has(category)) rtnMap.set(category, new Set<EventAlertDetails>());
 
-            rtnMap.get(category)?.add({
+    return (() => {
+        const rtnArr: ({ category: EventAlertCategory } & EventAlertDetails)[] = [];
+        eventAlertsRaw.forEach((eventAlertRaw) => {
+            rtnArr.push({
+                category: eventAlertRaw.category as EventAlertCategory,
                 subscriptionId: eventAlertRaw.sub_id,
+                subscriptionType: eventAlertRaw.type as SubscriptionType,
                 imageFile: eventAlertRaw.image_file,
                 audioFile: eventAlertRaw.audio_file,
                 alertText: eventAlertRaw.alert_text,
                 alertDuration: eventAlertRaw.duration,
                 audioVolume: eventAlertRaw.audio_volume,
-                alertDescription: SlitherEventSub.descriptionOf(subDescriptionMap.get(eventAlertRaw.sub_id) as SubscriptionType)
+                alertDescription: SlitherEventSub.descriptionOf(eventAlertRaw.type as SubscriptionType)
             });
 
         });
-        return rtnMap;
+        return rtnArr;
     })();
 }
 

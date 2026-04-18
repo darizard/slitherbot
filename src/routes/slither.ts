@@ -324,7 +324,16 @@ router.get('/home', authenticateSlitherUser, async (req: SlitherAuthRequest, res
 	const alertsToken = await slithersql.getAlertsTokenForUser(req.twitchId);
 	const alertsUrl = alertsToken ? `https://${sslConfig.hostName}/slither/alerts/${alertsToken}` : '';
 
-	const alertsMap: Map<EventAlertCategory, Set<EventAlertDetails>> = await eventalertssql.getAlertsByCategory(req.twitchId);
+	const alertsArr = await eventalertssql.getUserAlerts(req.twitchId);
+
+	const alertsMap: Map<EventAlertCategory, Set<EventAlertDetails>> = (() => {
+		const rtnMap: Map<EventAlertCategory, Set<EventAlertDetails>> = new Map();
+		alertsArr.forEach((alert) => {
+			if(!rtnMap.has(alert.category)) { rtnMap.set(alert.category, new Set()); }
+			rtnMap.get(alert.category)?.add(alert);
+		})
+		return rtnMap;
+	})();
 	const alertsSerialized = JSON.stringify([...alertsMap.entries()].map(([key, value]) => [key, [...value]]));
 
 	const defaultCategory: EventAlertCategory = 'Follows';
