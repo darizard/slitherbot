@@ -23,6 +23,7 @@ obj/
 public/images/*
 public/sounds/*
 public/*
+resources/alertmedia/*
 
 # Include JS and CSS!
 !public/css

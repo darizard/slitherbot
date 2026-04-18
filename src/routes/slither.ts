@@ -87,24 +87,24 @@ router.post('/event', rawParser, verifyTwitchEventMessage, async (req, res) => {
 		// Handle event notifications based on type!
 		if(SlitherEventSub.alertSubscriptionTypes.has(req.body.subscription.type)) {
 
-		if(req.body.subscription.type !== 'channel.channel_points_custom_reward_redemption.add') {
-			return res.sendStatus(204); // temporary return statement until more alert event types are supported
-		}
+			if(req.body.subscription.type !== 'channel.channel_points_custom_reward_redemption.add') {
+				return res.sendStatus(204); // temporary return statement until more alert event types are supported
+			}
 
-		// respond right away with 204 No Content
-		res.sendStatus(204);
+			// respond right away with 204 No Content
+			res.sendStatus(204);
 
-		const userId = SlitherEventSub.broadcasterOf(req.body.subscription.condition, req.body.subscription.type);
+			const userId = SlitherEventSub.broadcasterOf(req.body.subscription.condition, req.body.subscription.type);
 
-		// TODO: Build alert message based on DB information!
-		// send the reward redemption info to the WebSocket server
-		const wsmsgobj: AlertMessage = { type: 'alert', 
-										 userId: userId,
-										 data: { imageFile: 'RareCharTP-Trim.gif', 
-												audioFile: 'DiscordMute.mp3', 
-												alertText: 'Reward Text!', 
-												duration: 8000 } };
-		ws.send(wsmsgobj);
+			// TODO: Build alert message based on DB information!
+			// send the reward redemption info to the WebSocket server
+			const wsmsgobj: AlertMessage = { type: 'alert', 
+											userId: userId,
+											data: { imageFile: 'elio-lizard.gif', 
+													audioFile: 'DiscordMute.mp3', 
+													alertText: 'Reward Text!', 
+													duration: 8000 } };
+			ws.send(wsmsgobj);
 
 
 		}

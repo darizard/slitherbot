@@ -1,21 +1,25 @@
 import dotenv from 'dotenv'
 
-export { twitch, ssl, mysql, jwt, ws }
+export { app, twitch, ssl, mysql, jwt, ws }
 
 // environment setup
 dotenv.config()
+
+const app = {
+    appPath: String(process.env['APP_PATH'])
+};
 
 const twitch = {
     clientId: String(process.env['TWITCH_CLIENT_ID']),
     clientSecret: String(process.env['TWITCH_CLIENT_SECRET']),
     eventsubSecret: String(process.env['TWITCH_EVENTSUB_SECRET'])
-}
+};
 
 const ssl = {
     privateKeyPath: String(process.env['SSL_PRIVATE_KEY_PATH']),
     certificatePath: String(process.env['SSL_CERTIFICATE_PATH']),
     hostName: String(process.env['HOST_NAME'])
-}
+};
 
 const mysql = {
     host: String(process.env['HOST']),
@@ -24,14 +28,14 @@ const mysql = {
     password: String(process.env['PASSWORD']),
     database: String(process.env['DATABASE']),
     databaseUrl: String(process.env['DATABASE_URL'])
-}
+};
 
 const jwt = {
     refreshSecret: String(process.env['JWT_REFRESH_SECRET']),
     accessSecret: String(process.env['JWT_ACCESS_SECRET'])
-}
+};
 
 const ws = {
     controllerSecret: String(process.env['CONTROLLER_WEBSOCKET_SECRET']),
     alertsSecret: String(process.env['ALERTS_WEBSOCKET_SECRET'])
-}
+};

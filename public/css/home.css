@@ -374,6 +374,16 @@ button:focus {
 
                     }
 
+                    #audio-volume-input:focus {
+
+                            outline-color: var(--text-color);
+                            outline-width: 4px;
+                            outline-style: solid;
+                            outline-offset: -4px;
+                            border-radius: 15px;
+
+                    }
+
                     #play-audio-btn {
 
                         border-radius: 15px;
@@ -409,9 +419,17 @@ button:focus {
 
                 margin: 0 5px;
 
+                &:focus {
+
+                    outline-color: var(--text-color);
+                    outline-width: 4px;
+                    outline-style: solid;
+
+                }
+
             }
 
-
+            
 
     #alert-settings-section-2 {
 
@@ -440,7 +458,12 @@ button:focus {
 
             padding: 10px;
             border-radius: 15px;
-            
+
+            &:focus {
+                outline-color: var(--text-color);
+                outline-width: 4px;
+                outline-style: solid;
+            }           
 
         }
 

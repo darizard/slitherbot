@@ -51,8 +51,8 @@ function setAudioVolume(event) {
 function playAlertAudio(event) {
 
     document.querySelector('#alert-audio').currentTime = 0;
-
     document.querySelector('#alert-audio').play();
+    event.target.blur();
 
 }
 
@@ -66,9 +66,9 @@ async function copyTextToClipboard(text) {
 
 }
 
-async function previewAlert() {
+async function previewAlert(event) {
 
-    
+    event.target.blur();
 
 }
 
