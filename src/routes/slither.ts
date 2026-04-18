@@ -326,15 +326,14 @@ router.get('/home', authenticateSlitherUser, async (req: SlitherAuthRequest, res
 
 	const alertsArr = await eventalertssql.getUserAlerts(req.twitchId);
 
-	const alertsMap: Map<EventAlertCategory, Set<EventAlertDetails>> = (() => {
-		const rtnMap: Map<EventAlertCategory, Set<EventAlertDetails>> = new Map();
+	const alertsMap: Map<EventAlertCategory, EventAlertDetails[]> = (() => {
+		const rtnMap: Map<EventAlertCategory, EventAlertDetails[]> = new Map();
 		alertsArr.forEach((alert) => {
-			if(!rtnMap.has(alert.category)) { rtnMap.set(alert.category, new Set()); }
-			rtnMap.get(alert.category)?.add(alert);
+			if(!rtnMap.has(alert.category)) { rtnMap.set(alert.category, []); }
+			rtnMap.get(alert.category)?.push(alert);
 		})
 		return rtnMap;
 	})();
-	const alertsSerialized = JSON.stringify([...alertsMap.entries()].map(([key, value]) => [key, [...value]]));
 
 	const defaultCategory: EventAlertCategory = 'Follows';
 
@@ -342,7 +341,7 @@ router.get('/home', authenticateSlitherUser, async (req: SlitherAuthRequest, res
 		data: {
 			alertsUrl: alertsUrl,
 			navItems: JSON.stringify(navItems),
-			alerts: alertsSerialized,
+			alerts: alertsMap,
 			defaultCategory: defaultCategory
 		}
 	});

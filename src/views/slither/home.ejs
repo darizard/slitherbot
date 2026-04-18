@@ -10,16 +10,14 @@
   <link rel="stylesheet" href="/slither/css/base-style.css" />
   <link rel="stylesheet" href="/slither/css/home.css" />
   <script>
-    const alerts = <%- data.alerts %>;
-    const navItems = <%- data.navItems %>;
-    
+    const alertsMap = new Map(<%- JSON.stringify([...data.alerts.entries()].map(([key, value]) => [key, value])) %>);
     const defaultCategory = '<%- data.defaultCategory %>';
     const alertsUrl = '<%- data.alertsUrl %>';
   </script>
 </head>
 
 <body>
-  <%- include('./partials/navbar.ejs') %>
+  <%- include('./partials/navbar.ejs'); %>
   <div id="home-main-container">
 
     <p>Welcome to Home! Paste this URL into a browser source to start getting alerts.</p>

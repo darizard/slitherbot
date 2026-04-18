@@ -1,4 +1,3 @@
-const alertsMap = new Map(alerts);
 let selectedCategory = null;
 let selectedAlert = null;
 
@@ -11,6 +10,7 @@ document.querySelector('#audio-file-input').addEventListener('change', changeAud
 document.querySelector('#audio-file-input-btn').addEventListener('click', audioFileInputBtnClicked);
 document.querySelector('#alert-audio-volume').addEventListener('input', setAudioVolume);
 document.querySelector('#play-audio-btn').addEventListener('click', playAlertAudio);
+document.querySelector('#alert-audio-volume').addEventListener('change', setAudioVolume);
 
 function initializePage() {
 
@@ -26,10 +26,7 @@ function initializePage() {
 
     });
 
-    document.querySelector('#alert-audio-volume').addEventListener('change', setAudioVolume);
-
-    selectedCategory = 'Follows';
-    loadAlertDetails(alertsMap.get('Follows')[0]);
+    switchAlertCategory('Follows');
 
 }
 

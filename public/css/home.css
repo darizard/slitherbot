@@ -85,10 +85,6 @@ button:focus {
     display: flex;
     flex-direction: row;
 
-    /* border-style: solid;
-    border-color: var(--primary-color);
-    border-width: 10px; */
-
 
 }
 
