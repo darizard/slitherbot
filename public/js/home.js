@@ -11,20 +11,14 @@ document.querySelector('#audio-file-input-btn').addEventListener('click', audioF
 document.querySelector('#alert-audio-volume').addEventListener('input', setAudioVolume);
 document.querySelector('#play-audio-btn').addEventListener('click', playAlertAudio);
 document.querySelector('#alert-audio-volume').addEventListener('change', setAudioVolume);
+document.querySelectorAll('.alerts-category-btn').forEach((btn) => {
+    btn.addEventListener('click', (event) => {
+        switchAlertCategory(btn.textContent, event);
+        event.target.blur();
+    });
+});
 
 function initializePage() {
-
-    const categoriesContainer = document.querySelector('#alerts-categories-container');
-    
-    alertsMap.keys().forEach((key) => {
-
-        const categoryBtn = document.createElement("button");
-        categoryBtn.addEventListener('click', (event) => switchAlertCategory(key, event));
-        categoryBtn.classList.add('alerts-category-btn');
-        categoryBtn.textContent = key;
-        categoriesContainer.appendChild(categoryBtn);
-
-    });
 
     switchAlertCategory('Follows');
 
@@ -73,6 +67,8 @@ function switchAlertCategory(category) {
 
     if(category === selectedCategory) return;
 
+    document.querySelector(`#${selectedCategory?.toLowerCase().replace(' ', '')}-alerts-category-btn`)?.classList.remove('selected-category');
+    document.querySelector(`#${category.toLowerCase().replace(' ', '')}-alerts-category-btn`).classList.add('selected-category');
     selectedCategory = category;
     loadAlertDetails(alertsMap.get(category)[0]);
 

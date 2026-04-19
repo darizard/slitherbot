@@ -11,7 +11,7 @@ button {
 
 button:hover {
 
-    background-color: var(--darker-secondary);
+    background-color: var(--slightly-darker-secondary);
     cursor: pointer;
 
 }
@@ -111,6 +111,12 @@ button:focus {
     border-color: var(--darker-secondary);
 
     font-size: larger;
+
+}
+
+.selected-category {
+
+    background-color: var(--darker-secondary);
 
 }
 
