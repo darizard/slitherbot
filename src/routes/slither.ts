@@ -13,7 +13,7 @@ import { SlitherControllerClientWebSocket } from '../classes/slitherws.js';
 import type { SlitherAuthRequest, TwitchAuthCodeRequest } from '../types/authtypes.js';
 import { isTwitchAuthError, isTwitchAuthCode } from '../types/authtypes.js';
 import type { AlertMessage } from '../types/slitherwstypes.js';
-import { TwitchEventNotification, WebhookCallbackChallengeRequest } from '../types/eventsubtypes.js';
+import { TwitchEventNotification, WebhookCallbackChallengeRequest, SubscriptionType } from '../types/eventsubtypes.js';
 import { EventAlertCategory, EventAlertDetails } from '../types/alerttypes.js';
 
 // Authentication and Authorization Middleware
@@ -326,23 +326,34 @@ router.get('/home', authenticateSlitherUser, async (req: SlitherAuthRequest, res
 
 	const alertsArr = await eventalertssql.getUserAlerts(req.twitchId);
 
-	const alertsMap: Map<EventAlertCategory, EventAlertDetails[]> = (() => {
-		const rtnMap: Map<EventAlertCategory, EventAlertDetails[]> = new Map();
+	const alertsByCategoryMap = (() => {
+		const rtnMap = new Map();
 		alertsArr.forEach((alert) => {
 			if(!rtnMap.has(alert.category)) { rtnMap.set(alert.category, []); }
-			rtnMap.get(alert.category)?.push(alert);
+			rtnMap.get(alert.category)?.push({
+				subscriptionId: alert.subscriptionId,
+				subscriptionType: alert.subscriptionType.replace(/[\.:]/g, '').toLowerCase(),
+				imageFile: alert.imageFile,
+				audioFile: alert.audioFile,
+				alertText: alert.alertText,
+				alertDuration: alert.alertDuration,
+				audioVolume: alert.audioVolume,
+				alertDescription: alert.alertDescription
+			});
 		})
 		return rtnMap;
 	})();
 
 	const defaultCategory: EventAlertCategory = 'Follows';
+	const defaultAlertType: SubscriptionType = 'channel.follow';
 
 	res.render(`slither/home`, { 
 		data: {
 			alertsUrl: alertsUrl,
 			navItems: JSON.stringify(navItems),
-			alerts: alertsMap,
-			defaultCategory: defaultCategory
+			alerts: alertsByCategoryMap,
+			defaultCategory: defaultCategory,
+			defaultAlertType: defaultAlertType.replace(/[.:]/, '').toLowerCase()
 		}
 	});
 	

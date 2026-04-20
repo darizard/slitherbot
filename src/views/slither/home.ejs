@@ -10,9 +10,10 @@
   <link rel="stylesheet" href="/slither/css/base-style.css" />
   <link rel="stylesheet" href="/slither/css/home.css" />
   <script>
-    const alertsMap = new Map(<%- JSON.stringify([...data.alerts.entries()].map(([key, value]) => [key, value])) %>);
-    const defaultCategory = '<%- data.defaultCategory %>';
-    const alertsUrl = '<%- data.alertsUrl %>';
+    const alertsMap = new Map(<%- JSON.stringify([...data.alerts.entries()].map(([key, value]) => [key, value])) %>)
+    const defaultCategory = '<%- data.defaultCategory %>'
+    const defaultAlertType = '<%- data.defaultAlertType %>'
+    const alertsUrl = '<%- data.alertsUrl %>'
   </script>
 </head>
 
@@ -32,7 +33,11 @@
 <% }) %>
       </div>
       <div id="alert-options-container">
-        <p id="selected-alert-description"></p>
+<% data.alerts.get(data.defaultCategory).forEach((alert) => { %>
+        <button id="<%= alert.subscriptionType %>-alert-type-btn" class="alert-type-btn" tabindex="0">
+          <h2 class="alert-description"><%= alert.alertDescription %></h2>
+        </button>
+<% }) %>
         <div id="alert-settings-section-1">
           <div id="alert-preview-box"><img id="alert-img" src=""></div>
           <div id="alert-customization-inputs-area">
