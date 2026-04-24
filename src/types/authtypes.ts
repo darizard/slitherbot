@@ -1,7 +1,7 @@
 import { Request } from 'express';
 
-export interface SlitherAuthRequest extends Request {
-    twitchId?: string;
+export type SlitherAuthenticatedRequest = Request & {
+    twitchId?: string
 }
 
 export type SlitherTokenType = 'access' | 'refresh' | 'alerts'

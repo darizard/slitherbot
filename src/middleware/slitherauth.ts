@@ -1,9 +1,9 @@
 import { RequestHandler } from "express";
 import { requiresLogin } from "../db/queries/slitherauth.js";
 import { verifySlitherToken, refreshSlitherAccessToken, addSlitherTokenCookie } from "../services/slitherauth.js";
-import { SlitherAuthRequest } from '../types/authtypes.js';
+import { SlitherAuthenticatedRequest } from '../types/authtypes.js';
 
-export const authenticateSlitherUser: RequestHandler = async (req: SlitherAuthRequest, res, next) => {
+export const authenticateSlitherUser: RequestHandler = async (req: SlitherAuthenticatedRequest, res, next) => {
 
     let twitchId = await verifySlitherToken(req.cookies['access_token'], 'access');
 

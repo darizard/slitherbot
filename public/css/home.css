@@ -7,21 +7,25 @@ button {
     background-color: var(--secondary-color);
     color: var(--text-color);
 
-}
+    border-radius: 15px;
 
-button:hover {
+    font-size: large;
 
-    background-color: var(--slightly-darker-secondary);
-    cursor: pointer;
+    &:hover {
 
-}
+        background-color: var(--slightly-darker-secondary);
+        cursor: pointer;
+        
+    }
 
-button:focus {
+    &:focus {
 
-    outline-color: var(--text-color);
-    outline-width: 4px;
-    outline-style: solid;
-    outline-offset: -4px;
+        outline-color: var(--text-color);
+        outline-width: 4px;
+        outline-style: solid;
+        outline-offset: -4px;
+
+    }
 
 }
 
@@ -97,7 +101,7 @@ button:focus {
     flex-direction: column;
     justify-content: space-around;
 
-    background-color: var(--primary-color);
+    background-color: var(--darker-secondary);
 
 }
 
@@ -106,8 +110,6 @@ button:focus {
     padding: 8px;
 
     height: calc(100% / 6);
-
-    background-color: var(--secondary-color);
 
     border-style: solid;
     border-width: 2px;
@@ -119,7 +121,7 @@ button:focus {
 
 .selected-category {
 
-    background-color: var(--darker-secondary);
+    background-color: var(--slightly-darker-secondary);
 
 }
 
@@ -151,6 +153,10 @@ button:focus {
         background-color: var(--primary-color);
 
         border-style: none;
+        outline: solid;
+        outline-color: var(--text-color);
+        outline-width: 1px;
+        outline-offset: -1px;
 
         &:hover {
 
@@ -263,13 +269,13 @@ button:focus {
 
                 font-size: larger;
 
-            }
+                &:focus {
 
-            #alert-preview-btn:focus {
+                    outline-color: var(--text-color);
+                    outline-width: 4px;
+                    outline-style: solid;
 
-                outline-color: var(--text-color);
-                outline-width: 4px;
-                outline-style: solid;
+                }
 
             }
 
@@ -361,6 +367,7 @@ button:focus {
 
                         width: 100%;
                         max-height: 50%;
+                        min-height: 15px;
 
                         padding: 5px 0;
 
@@ -479,6 +486,8 @@ button:focus {
             width: 500px;
             text-align: center;
 
+            margin-top: 10px;
+
             padding: 10px;
             border-radius: 15px;
 
@@ -509,6 +518,37 @@ button:focus {
                 /*For now, provide a bullet list of variables available to the current event*/
                 background-color: var(--secondary-color);
                 margin: 10px 0;
+
+            }
+
+        #save-or-discard-area {
+
+            display: flex;
+            flex-direction: row;
+
+            justify-content: space-evenly;
+            align-items: center;
+
+            margin: 20px;
+
+            & button {
+
+                margin: 0 20px;
+                padding: 10px;
+
+            }
+
+        }
+
+            #discard-changes-btn {
+
+                background-color: var(--primary-color);
+
+                &:hover {
+
+                    background-color: var(--lighter-primary);
+
+                }
 
             }
 

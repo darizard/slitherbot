@@ -10,15 +10,16 @@ import { ssl as sslConfig, twitch as twitchConfig, ws as wsConfig } from '../con
 import { SlitherControllerClientWebSocket } from '../classes/slitherws.js';
 
 // Internal TS types and runtime type guards
-import type { SlitherAuthRequest, TwitchAuthCodeRequest } from '../types/authtypes.js';
+import type { SlitherAuthenticatedRequest, TwitchAuthCodeRequest } from '../types/authtypes.js';
 import { isTwitchAuthError, isTwitchAuthCode } from '../types/authtypes.js';
 import type { AlertMessage } from '../types/slitherwstypes.js';
 import { TwitchEventNotification, WebhookCallbackChallengeRequest, SubscriptionType } from '../types/eventsubtypes.js';
-import { EventAlertCategory, EventAlertDetails } from '../types/alerttypes.js';
+import { AlertUpdateData, AlertPostReqBody, EventAlertCategory } from '../types/alerttypes.js';
 
-// Authentication and Authorization Middleware
+// Express Middleware
 import { verifyTwitchEventMessage } from '../middleware/twitchauth.js';
 import { authenticateSlitherUser } from '../middleware/slitherauth.js';
+import { alertMediaUploadMiddleware } from '../middleware/eventalerts.js';
 
 // Internal logic modules
 import { registerSlitherUser, signSlitherToken, verifySlitherToken, addSlitherTokenCookie, verifyAlertsConnectionToken } from '../services/slitherauth.js';
@@ -176,7 +177,7 @@ router.get('/media/:filename', (req, res) => {
 	// Allow only a-z, A-Z, 0-9, and the literals - and _ in file names. Files supported are only:
 	// { .gif, .png, .jpg, .mp3, .wav, .ico }
 	const ALLOWED_MEDIA_STRICT = /^[\w\-\_]+\.(?i:gif|png|jpg|mp3|wav|ico)$/;
-	const fileName: string = req.params.filename;
+	const fileName: string = req.params['filename'] as string;
 	if(!ALLOWED_MEDIA_STRICT.test(fileName)) {
 		return res.status(404).end();
 	}
@@ -187,6 +188,46 @@ router.get('/media/:filename', (req, res) => {
 			res.status(404).end();
 		}
 	});
+
+});
+
+router.post('/alerts', authenticateSlitherUser, alertMediaUploadMiddleware, async (req: SlitherAuthenticatedRequest, res) => {
+
+	console.log(`req body: ${JSON.stringify(req.body)}`)
+	const alertPostReqBody = req.body as AlertPostReqBody;
+
+	const files = req.files as { [fieldname: string]: Express.Multer.File[] };
+	let imageFile, imageFileName, audioFile, audioFileName = undefined;
+	if(files['imageBlob'] && files['imageBlob'][0]) {
+		const img = files['imageBlob'][0];
+		imageFile = img.filename;
+		imageFileName = img.originalname;
+	}
+	if(files['audioBlob'] && files['audioBlob'][0]) {
+		const audio = files['audioBlob'][0];
+		audioFile = audio.filename;
+		audioFileName = audio.originalname;
+	}
+
+	const subId = alertPostReqBody.subscriptionId;
+	const updateData: AlertUpdateData = { };
+	const audioVolume = alertPostReqBody.audioVolume ? parseInt(alertPostReqBody.audioVolume) : undefined;
+	const duration = alertPostReqBody.alertDuration ? parseInt(alertPostReqBody.alertDuration) : undefined;
+	if(audioVolume) updateData.audio_volume = audioVolume;
+	if(duration) updateData.duration = duration;
+	if(alertPostReqBody.alertText) updateData.alert_text = alertPostReqBody.alertText;
+	if(imageFile) updateData.image_file = imageFile;
+	if(imageFileName) updateData.image_file_name = imageFileName;
+	if(audioFile) updateData.audio_file = audioFile;
+	if(audioFileName) updateData.audio_file_name = audioFileName;
+
+	const { image_file, audio_file } = (await eventalertssql.getAlert(subId)) || { audio_file: undefined, image_file: undefined };
+
+	await eventalertssql.updateAlert(subId, updateData);
+	if(image_file) {/*delete old image file*/}
+	if(audio_file) {/*delete old audio file*/}
+
+	res.sendStatus(204);
 
 });
 
@@ -318,7 +359,7 @@ router.get('/oauth', async (req, res) => {
 });
 
 // Protected route. Redirect to /slither/auth if the browser cookies do not contain a valid authentication token.
-router.get('/home', authenticateSlitherUser, async (req: SlitherAuthRequest, res) => {
+router.get('/home', authenticateSlitherUser, async (req: SlitherAuthenticatedRequest, res) => {
 
 	const navItems: { label: string, href: string }[] = [{href: `/slither/logout`, label: 'Logout'}];
 	const alertsToken = await slithersql.getAlertsTokenForUser(req.twitchId);
@@ -333,8 +374,8 @@ router.get('/home', authenticateSlitherUser, async (req: SlitherAuthRequest, res
 			rtnMap.get(alert.category)?.push({
 				subscriptionId: alert.subscriptionId,
 				subscriptionType: alert.subscriptionType.replace(/[\.:]/g, '').toLowerCase(),
-				imageFile: alert.imageFile,
-				audioFile: alert.audioFile,
+				imageFile: alert.imageFileName,
+				audioFile: alert.audioFileName,
 				alertText: alert.alertText,
 				alertDuration: alert.alertDuration,
 				audioVolume: alert.audioVolume,
