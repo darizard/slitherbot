@@ -130,7 +130,7 @@ export async function initialize(): Promise<void> {
 	// For any required subs for active users that are still missing from the database, subscribe to the event.
 	// The database update will be handled by the /slither/event endpoint after a Twitch webhook callback 
 	// verification request.
-	const requiredSubs: Set<SlitherEventSubscription> = SlitherEventSub.getRequiredSubscriptions(activeUserIds);
+	const requiredSubs: Set<SlitherEventSubscription> = SlitherEventSub.getAllRequiredSubscriptions(activeUserIds);
 	const registeredSubs: Set<SlitherEventSubscription> = await eventsubsql.getSubscriptionsForUsers(activeUserIds.concat(['.']));
 	
 	// Find the Set difference of Set<{ requiredSubs.channel_id, requiredSubs.type }> - Set<{ registeredSubs.channel_id, registeredSubs.type }>

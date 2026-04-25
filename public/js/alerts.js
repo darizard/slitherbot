@@ -18,7 +18,7 @@ connectWebSocket()
 
       if(socket.readyState === WebSocket.OPEN) socket.send(JSON.stringify({type: "ping"}))
 
-    }, 60000) // Ping the WS server every 1 minute to keep the connection alive
+    }, 30000) // Ping the WS server every 30 seconds to keep the connection alive
 
     let reconnectIntervalID = setInterval(() => {
 

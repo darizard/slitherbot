@@ -15,6 +15,7 @@ export class SlitherEventSub {
         ['channel.channel_points_custom_reward_redemption.update', '1'],
         ['channel.hype_train.begin', '2'],
         ['channel.hype_train.end', '2'],
+        ['channel.shoutout.receive', '1'],
         // Required user-level data maintenance subscription
         ['user.update', '1'],
 
@@ -29,8 +30,7 @@ export class SlitherEventSub {
         ['channel.chat.message', '1'],
         ['channel.chat.notification', '1'],
         ['channel.moderate', '2'],
-        ['channel.shoutout.create', '1'],
-        ['channel.shoutout.receive', '1']
+        ['channel.shoutout.create', '1']
     ]);
 
     static readonly #subDescriptionMap = new Map<SubscriptionType, string>([
@@ -43,8 +43,9 @@ export class SlitherEventSub {
         ['channel.channel_points_custom_reward_redemption.add', "A viewer redeems a custom channel points reward"],
         ['channel.channel_points_custom_reward_redemption.update', "A viewer's channel points reward redemption is updated"],
         ['channel.hype_train.begin', "A hype train begins on your channel"],
-        ['channel.hype_train.end', "A hype train concludes on your channel"]
-    ])
+        ['channel.hype_train.end', "A hype train concludes on your channel"],
+        ['channel.shoutout.receive', "Another broadcaster gives you a shoutout"]
+    ]);
 
     static readonly #callbackURI = `https://${sslConfig.hostName}/slither/event`;
 
@@ -58,7 +59,8 @@ export class SlitherEventSub {
         'channel.channel_points_custom_reward_redemption.add',
 		'channel.channel_points_custom_reward_redemption.update',
         'channel.hype_train.begin',
-        'channel.hype_train.end'
+        'channel.hype_train.end',
+        'channel.shoutout.receive'
     ]);
 
     static readonly userMaintenanceTypes = new Set<SubscriptionType>([
@@ -73,7 +75,7 @@ export class SlitherEventSub {
     static readonly scopes = new Set<string>(['bits:read', 'channel:read:redemptions', 'channel:manage:redemptions', 
 	'moderator:read:followers', 'channel:read:subscriptions', 'moderator:read:shoutouts', 'moderator:manage:shoutouts', 
 	'channel:read:hype_train', 'channel:read:predictions', 'channel:manage:predictions', 'channel:read:polls',
-	'channel:manage:polls', 'user:read:chat']);
+	'channel:manage:polls', 'user:read:chat', 'moderator:manage:shoutouts']);
 
     static readonly subscriptionCreationTransport = Object.freeze({
         method: 'webhook',
@@ -206,7 +208,7 @@ export class SlitherEventSub {
 
     }
 
-    static getRequiredSubscriptions(channelIds: string[] | string): Set<SlitherEventSubscription> {
+    static getAllRequiredSubscriptions(channelIds: string[] | string): Set<SlitherEventSubscription> {
         if(!Array.isArray(channelIds)) channelIds = [channelIds];
 
         const rtnSet: Set<SlitherEventSubscription> = new Set();
@@ -241,6 +243,31 @@ export class SlitherEventSub {
             });
         }
         return rtnSet;
+    }
+
+    static getRequiredUserSubscriptions(channelId: string): Set<SlitherEventSubscription> {
+        const rtnSet: Set<SlitherEventSubscription> = new Set();
+
+        // For every twitch channel user, add user sub types
+        for(let alertSubType of this.alertSubscriptionTypes) {
+            rtnSet.add({ 
+                channel_id: channelId, 
+                type: alertSubType,
+                version: this.versionOf(alertSubType),
+                id: ''
+            });
+        }
+        for(let userMaintenanceType of this.userMaintenanceTypes) {
+            rtnSet.add({ 
+                channel_id: channelId, 
+                type: userMaintenanceType,
+                version: this.versionOf(userMaintenanceType),
+                id: ''
+            });
+        }
+        
+        return rtnSet;
+
     }
 
 }

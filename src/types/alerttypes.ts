@@ -1,6 +1,6 @@
 import { SubscriptionType } from "./eventsubtypes.js";
 
-export type EventAlertCategory = 'Follows' | 'Subscriptions' | 'Channel Points' | 'Raids' | 'Hype Trains' | 'Bits';
+export type EventAlertCategory = 'Follows' | 'Subscriptions' | 'Channel Points' | 'Raids' | 'Hype Trains' | 'Bits' | 'Shoutouts';
 
 export type EventAlertDetails = {
 

@@ -4,12 +4,14 @@
 
 import { generateSecret } from './secrets.js';
 import slithersql from '../db/queries/slitherauth.js';
+import eventsubsql from '../db/queries/eventsub.js';
 import { SignJWT, jwtVerify } from 'jose';
-import { jwt as jwtConfig, ws as wsConfig } from '../config.js';
+import { jwt as jwtConfig, ws as wsConfig, app as appConfig } from '../config.js';
 import type { SlitherTokenType } from '../types/authtypes.js';
 import type { Response } from 'express';
 import { SlitherEventSub } from '../classes/eventsub.js';
 import { subscribeToEvent } from '../services/eventsubclient.js';
+import fs from 'fs';
 
 const SECRETS = new Map<string, Uint8Array>();
 SECRETS.set('refresh', new TextEncoder().encode(jwtConfig.refreshSecret));
@@ -27,14 +29,6 @@ export async function refreshSlitherAccessToken(refreshToken: string): Promise<{
     return { accessToken: accessToken, userId: userId };
 }
 
-// TODO: Logging out and back in on the home page currently spams 409 responses for all of the
-//       user's required events but one, and subsequently outputs errors on the DB upsert. The channel
-//       points custom reward redemption event still fires successfully and triggers an alert in 
-//       OBS, so the subscription is still active with Twitch (duh, 409). The user.update event successfully
-//       unsubscribes and resubscribes during this process, and Slither attempts to resubscribe to the
-//       app-level user.authorization.[grant/revoke] subscriptions but receives 409 responses as well.
-//       Restarting the server does not attempt to resubscribe to any events or touch the DB in any way.
-
 // Called as a follow-up to a completed twitch User Access Token OAuth flow. Need to add the user
 // into the SlitherIDs table if necessary. Afterward, return a JWT containing the payload argument 
 // signed with the secret from jwtConfig
@@ -42,7 +36,7 @@ export async function registerSlitherUser(userId: string): Promise<void | null> 
 
     // Alerts token should remain the same between authorization cycles, e.g. if the user disconnects Slither
     // on the Twitch and and then reconnects later. At this stage we are only worrying about inserting an alerts
-    // token, all other data for the SlitherIDs table is handled outside of this methid.
+    // token, all other data for the SlitherIDs table is handled outside of this method.
     // TODO: Provide a way for the user to rotate their alerts token
     if(!await slithersql.getAlertsTokenForUser(userId))
     {
@@ -66,14 +60,18 @@ export async function registerSlitherUser(userId: string): Promise<void | null> 
         }
     }
 
-    // Now that the user has been created in the database, subscribe to all required subscriptions for that user.
-    SlitherEventSub.getRequiredSubscriptions(userId).forEach(async (requiredSub) => {
-        if(!await subscribeToEvent(requiredSub.type, requiredSub.channel_id)) {
-            
-            console.error(`Error upserting newly registered user's required EventSub user even types for userId ${userId}`);
+    // Now that the user has been logged in, subscribe to all nonexisting required subscriptions for that user.
+    const existingSubTypes: string[] = [];
+    const subsForUser = await eventsubsql.getSubscriptionsForUsers(userId);
+    subsForUser.forEach((sub) => { existingSubTypes.push(sub.type); });
 
+    SlitherEventSub.getRequiredUserSubscriptions(userId).forEach(async (requiredSub) => {
+        if(!existingSubTypes.includes(requiredSub.type) && !await subscribeToEvent(requiredSub.type, requiredSub.channel_id)) {
+            console.error(`Error upserting newly registered user's required EventSub user event types for userId ${userId}`);
         }
     });
+
+    void fs.promises.mkdir(`${appConfig.appPath}/resources/alertmedia/${userId}`, { recursive: true} );
 
 }
 

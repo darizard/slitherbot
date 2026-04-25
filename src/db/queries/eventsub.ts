@@ -21,15 +21,18 @@ export async function getAllSubscriptions(): Promise<Set<SlitherEventSubscriptio
     return typedSubs;
 }
 
-export async function getAllUserSubscriptions(): Promise<Set<SlitherEventSubscription>> {
+export async function getUserSubscriptions(twitchId?: string): Promise<Set<SlitherEventSubscription>> {
 
-    const allSubs = await db.selectFrom('EventSubs')
-        .selectAll()
-            .where('channel_id', '!=', '.')
-        .execute();
+    let subsQuery = db.selectFrom('EventSubs')
+        .selectAll();
+
+    if(twitchId === undefined) subsQuery = subsQuery.where('channel_id', '!=', '.');
+    else subsQuery = subsQuery.where('channel_id', '=', twitchId);
+
+    const queryResult = await subsQuery.execute();
 
     const typedSubs: Set<SlitherEventSubscription> = new Set();
-    allSubs.forEach((dbSub) => {
+    queryResult.forEach((dbSub) => {
         typedSubs.add({
             channel_id: dbSub.channel_id,
             type: dbSub.type as SubscriptionType,
@@ -59,7 +62,7 @@ export async function getAllAppSubscriptions(): Promise<Set<SlitherEventSubscrip
     return typedSubs;
 }
 
-export async function getSubscriptionsForUsers(userIds: string[]): Promise<Set<SlitherEventSubscription>> {
+export async function getSubscriptionsForUsers(userIds: string |string[]): Promise<Set<SlitherEventSubscription>> {
     if(!Array.isArray(userIds)) userIds = [userIds];
 
     const queryResult = await db.selectFrom('EventSubs')

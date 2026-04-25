@@ -88,7 +88,10 @@ router.post('/event', rawParser, verifyTwitchEventMessage, async (req, res) => {
 		// Handle event notifications based on type!
 		if(SlitherEventSub.alertSubscriptionTypes.has(req.body.subscription.type)) {
 
-			if(req.body.subscription.type !== 'channel.channel_points_custom_reward_redemption.add') {
+			if(req.body.subscription.type !== 'channel.channel_points_custom_reward_redemption.add' &&
+				req.body.subscription.type !== 'channel.shoutout.receive' &&
+				req.body.subscription.type !== 'channel.follow'
+			) {
 				return res.sendStatus(204); // temporary return statement until more alert event types are supported
 			}
 
@@ -101,12 +104,11 @@ router.post('/event', rawParser, verifyTwitchEventMessage, async (req, res) => {
 			// send the reward redemption info to the WebSocket server
 			const wsmsgobj: AlertMessage = { type: 'alert', 
 											userId: userId,
-											data: { imageFile: 'elio-lizard.gif', 
+											data: { imageFile: 'headpatsgohard.gif', 
 													audioFile: 'DiscordMute.mp3', 
 													alertText: 'Reward Text!', 
 													duration: 8000 } };
 			ws.send(wsmsgobj);
-
 
 		}
 
@@ -297,7 +299,13 @@ router.get('/auth', async (req, res) => {
 		return res.redirect('/slither/home');
 	}
 
-	res.render('slither/auth');
+	const navItems: { label: string, href: string }[] = [{href: `/slither/logout`, label: 'Logout'}];
+
+	res.render('slither/auth', {
+		data: {
+			navItems: JSON.stringify(navItems)
+		}
+	});
 
 });
 

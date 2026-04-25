@@ -207,7 +207,7 @@ async function displayAlertDetails(alert) {
 
     const imageUrl = unsavedAlertsMedia.get(alert.subscriptionType)?.imageUrl || alertsMedia.get(alert.subscriptionType)?.imageUrl;
     const audioUrl = unsavedAlertsMedia.get(alert.subscriptionType)?.audioUrl || alertsMedia.get(alert.subscriptionType)?.audioUrl;
-    const APImedia = await getMedia(alert.subscriptionType, (imageUrl === undefined), (audioUrl === undefined))
+    const APImedia = await getMedia(alert.subscriptionId, (imageUrl === undefined), (audioUrl === undefined))
 
     document.querySelector('#alert-audio-filename').value = audioFileVal;
     document.querySelector('#audio-volume-input').value = volumeVal / 100;
@@ -368,6 +368,6 @@ async function getMedia(subType, getImage, getAudio) {
 
     return { image: '', audio: '' };
 
-    console.log(`subType: ${subType}, getImage: ${getImage}, getAudio: ${getAudio}`)
+    console.log(`subType: ${subType}, getImage: ${getImage}, getAudio: ${getAudio}`);
 
 }
