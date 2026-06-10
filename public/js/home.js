@@ -9,7 +9,7 @@ const lastAlertForCategory = new Map([]); // keys are categories, values are sub
 
 const DEFAULT_ALERT_DETAILS = {
     imageFile: '',
-    audioFile: 'audio_here.mp3',
+    audioFile: '...',
     alertText: '',
     alertDuration: 8000,
     audioVolume: 20,
@@ -24,8 +24,8 @@ document.querySelector('#image-file-input-btn').addEventListener('click', imageF
 document.querySelector('#audio-file-input').addEventListener('change', setAudioFile);
 document.querySelector('#audio-file-input-btn').addEventListener('click', audioFileInputBtnClicked);
 document.querySelector('#audio-volume-input').addEventListener('input', setAudioVolume);
-document.querySelector('#alert-duration-input').addEventListener('change', setAlertDuration);
-document.querySelector('#alert-text-input').addEventListener('change', setAlertText);
+document.querySelector('#alert-duration-input').addEventListener('input', setAlertDuration);
+document.querySelector('#alert-text-input').addEventListener('input', setAlertText);
 document.querySelector('#play-audio-btn').addEventListener('click', playAudioBtnClicked);
 document.querySelector('#save-alert-btn').addEventListener('click', uploadAlert);
 document.querySelector('#discard-changes-btn').addEventListener('click', clearAlertDetails);
@@ -128,6 +128,7 @@ async function switchAlertCategory(category, event) {
     if(category === selectedCategory) return;
 
     const optionsContainer = document.querySelector('#alert-options-container');
+    const alertTypeButtonsContainer = document.querySelector('#alert-type-buttons-container');
     const settings1 = document.querySelector('#alert-settings-section-1');
     const settings2 = document.querySelector('#alert-settings-section-2');
 
@@ -135,7 +136,7 @@ async function switchAlertCategory(category, event) {
         return alert.subscriptionType === lastAlertForCategory.get(category);
     }) || alertsMap.get(category)[0];
 
-    const alertBox = [];
+    const alertTypeButtons = [];
     for(let i = 0; i < alertsMap.get(category).length; i++) {
         const newButton = document.createElement('button');
         const subType = alertsMap.get(category)[i].subscriptionType;
@@ -147,22 +148,22 @@ async function switchAlertCategory(category, event) {
         });
         newButton.tabIndex = 0;
 
-        const descH2 = document.createElement('h2');
-        descH2.setAttribute('id', `${subType}-description`);
-        descH2.classList.add('alert-description');
-        descH2.textContent = alertsMap.get(category)[i].alertDescription;
-        if(unsavedAlertsMap.has(subType)) descH2.textContent += ' (UNSAVED)';
-        newButton.appendChild(descH2);
+        newButton.textContent = alertsMap.get(category)[i].alertDescription;
+        if(unsavedAlertsMap.has(subType)) newButton.textContent += ' (UNSAVED)';
 
-        alertBox.push(newButton);
+        alertTypeButtons.push(newButton);
 
-        if(i === 0) {
-            alertBox.push(settings1);
-            alertBox.push(settings2);
-        }
     }
 
-    optionsContainer.replaceChildren(...alertBox);
+    alertTypeButtonsContainer.replaceChildren(...alertTypeButtons);
+
+    const optionsSections = []
+    optionsSections.push(alertTypeButtonsContainer);
+
+    optionsSections.push(settings1);
+    optionsSections.push(settings2);
+
+    optionsContainer.replaceChildren(...optionsSections);
     
     if(selectedCategory) {
         document.querySelector(`#${selectedCategory.toLowerCase().replace(' ', '')}-alerts-category-btn`).classList.remove('selected-category');
@@ -181,9 +182,6 @@ async function changeSelectedAlert(type) {
 
     const newSelectedBtn = document.querySelector(`#${type}-alert-type-btn`);
     newSelectedBtn.classList.add('selected-alert');
-    const settings1 = document.querySelector('#alert-settings-section-1');
-    newSelectedBtn.after(settings1);
-    settings1.after(document.querySelector('#alert-settings-section-2'));
     
     document.querySelector(`#${selectedAlertType}-alert-type-btn`)?.classList.remove('selected-alert');
     document.querySelector(`#${type}-alert-type-btn`)?.classList.add('selected-alert');
@@ -212,7 +210,7 @@ async function displayAlertDetails(alert) {
     document.querySelector('#alert-audio-filename').value = audioFileVal;
     document.querySelector('#audio-volume-input').value = volumeVal / 100;
     document.querySelector('#alert-duration-input').value = durationVal / 1000;
-    document.querySelector('#alert-text-input').value = textVal;
+    document.querySelector('#alert-text-input').value = textVal || '';
 
     document.querySelector('#alert-img-thumb').setAttribute('src', imageUrl ?? APImedia.imageUrl ?? '');
     document.querySelector('#alert-audio').setAttribute('src', audioUrl ?? APImedia.audioUrl ?? '');
@@ -291,7 +289,8 @@ async function uploadAlert() {
     });
 
     const data = new FormData();
-    const { imageUrl, audioUrl } = unsavedAlertsMedia.get(selectedAlertType);
+
+    const { imageUrl = undefined, audioUrl = undefined } = unsavedAlertsMedia.get(selectedAlertType) ?? { };
 
     if(imageUrl) {
         const imageBlob = await fetch(imageUrl).then(r => r.blob());
@@ -318,7 +317,7 @@ async function uploadAlert() {
         if(unsavedAlert.audioVolume) mappedAlert.audioVolume = unsavedAlert.audioVolume;
         if(unsavedAlert.alertDuration) mappedAlert.audioDuration = unsavedAlert.audioDuration;
         if(unsavedAlert.alertText) mappedAlert.alertText = unsavedAlert.alertText;
-        document.querySelector(`#${selectedAlertType}-description`).textContent = mappedAlert.alertDescription;
+        document.querySelector(`#${selectedAlertType}-alert-type-btn`).textContent = mappedAlert.alertDescription;
         unsavedAlertsMap.delete(selectedAlertType);
 
     }
@@ -344,7 +343,7 @@ function clearAlertDetails() {
         return alert.subscriptionType === selectedAlertType;
     });
 
-    document.querySelector(`#${selectedAlertType}-description`).textContent = alertToRestore.alertDescription;
+    document.querySelector(`#${selectedAlertType}-alert-type-btn`).textContent = alertToRestore.alertDescription;
     displayAlertDetails(alertToRestore);
 
 }
@@ -356,7 +355,7 @@ function updateUnsavedAlert(attr, val) {
 
     if(!unsavedAlertsMap.has(type)) {
         unsavedAlertsMap.set(type, { });
-        alertBtn.querySelector('h2').textContent += ' (UNSAVED)';
+        alertBtn.textContent += ' (UNSAVED)';
     }
     unsavedAlertsMap.get(type)[attr] = val;
 

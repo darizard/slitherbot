@@ -12,19 +12,17 @@ function initializeNavbar() {
 
         a.href = item.href;
         a.textContent = item.label;
-        a.target = "_blank";
-        a.rel = "noopener noreferrer";
 
     })
 
-    const a = ul.appendChild(document.createElement('li'))
+    const githubLI = ul.appendChild(document.createElement('li'))
       .appendChild(document.createElement('a'));
 
-    a.href = "https://github.com/darizard/slitherbot";
-    a.target = "_blank";
-    a.rel = "noopener noreferrer";
+    githubLI.href = "https://github.com/darizard/slitherbot";
+    githubLI.target = "_blank";
+    githubLI.rel = "noopener noreferrer";
 
-    const img = a.appendChild(document.createElement('img'));
+    const img = githubLI.appendChild(document.createElement('img'));
     img.src = "/slither/media/dari-badge-silhouette-nocorners-400px.png";
 
 }

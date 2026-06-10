@@ -195,7 +195,6 @@ router.get('/media/:filename', (req, res) => {
 
 router.post('/alerts', authenticateSlitherUser, alertMediaUploadMiddleware, async (req: SlitherAuthenticatedRequest, res) => {
 
-	console.log(`req body: ${JSON.stringify(req.body)}`)
 	const alertPostReqBody = req.body as AlertPostReqBody;
 
 	const files = req.files as { [fieldname: string]: Express.Multer.File[] };
@@ -249,7 +248,7 @@ router.post('/auth/refresh', jsonParser, async (req, res) => {
 	}
 
 	const accessToken = await signSlitherToken(userId, 'access');
-	if(!accessToken) console.error(`undefined value detected for access token cookie being issued in /auth/refresh`);
+	if(!accessToken) console.error(`attempt to sign access token using userId ${userId} failed in /auth/refresh`);
 
 	addSlitherTokenCookie(res, accessToken, 'access');
 
@@ -266,8 +265,7 @@ router.get('/auth/twitch', (_req, res) => {
 
 	setTimeout(() => {
 
-		const stateExists = AUTH_STATES.has(state);
-		if(stateExists) {
+		if(AUTH_STATES.has(state)) {
 			AUTH_STATES.delete(state);
 		}
 		
@@ -369,7 +367,10 @@ router.get('/oauth', async (req, res) => {
 // Protected route. Redirect to /slither/auth if the browser cookies do not contain a valid authentication token.
 router.get('/home', authenticateSlitherUser, async (req: SlitherAuthenticatedRequest, res) => {
 
-	const navItems: { label: string, href: string }[] = [{href: `/slither/logout`, label: 'Logout'}];
+	const navItems: { label: string, href: string }[] = [
+		{href: `/slither/demo`, label: 'Demo'},
+		{href: `/slither/logout`, label: 'Logout'}
+	];
 	const alertsToken = await slithersql.getAlertsTokenForUser(req.twitchId);
 	const alertsUrl = alertsToken ? `https://${sslConfig.hostName}/slither/alerts/${alertsToken}` : '';
 
@@ -406,6 +407,23 @@ router.get('/home', authenticateSlitherUser, async (req: SlitherAuthenticatedReq
 		}
 	});
 	
+});
+
+router.get('/demo', (_req, res) => {
+
+	res.statusCode = 200;
+	res.render('slither/demo', {
+		data: {
+			alertsUrl: 'https://dari.monster/slither/alerts/yourURL',
+			navItems: JSON.stringify([{
+				href: '/slither/home', label: 'Exit Demo'
+			}]),
+			alerts: new Map(),
+			defaultCategory: 'Follows',
+			defaultAlertType: 'channel.follow'
+		}
+	});
+
 });
 
 router.get('/logout', (_req, res) => {

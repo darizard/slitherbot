@@ -21,7 +21,7 @@
   <%- include('./partials/navbar.ejs'); %>
   <div id="home-main-container">
 
-    <p>Welcome to Home! Paste this URL into a browser source to start getting alerts.</p>
+    <p>Paste this URL into a browser source to start getting alerts!</p>
     <div id="alerts-url-container">
       <input id="alerts-url-field" disabled type="text" value="<%= data.alertsUrl ? data.alertsUrl : ''%>">
       <button id="copy-alerts-url-btn">Copy</button>
@@ -33,15 +33,19 @@
 <% }) %>
       </div>
       <div id="alert-options-container">
+        <div id="alert-type-buttons-container">
 <% data.alerts.get(data.defaultCategory).forEach((alert) => { %>
-        <button id="<%= alert.subscriptionType %>-alert-type-btn" class="alert-type-btn" tabindex="0">
-          <h2 class="alert-description"><%= alert.alertDescription %></h2>
-        </button>
+          <button id="<%= alert.subscriptionType %>-alert-type-btn" class="alert-type-btn" tabindex="0">
+            <h2 class="alert-description"><%= alert.alertDescription %></h2>
+          </button>
 <% }) %>
+        </div>
         <div id="alert-settings-section-1">
-          <div id="alert-preview-box"><img id="alert-img" src=""></div>
-          <div id="alert-customization-inputs-area">
+          <div id="alert-preview-container">
             <button id="alert-preview-btn">Preview Alert</button>
+            <div id="alert-preview-box"><img id="alert-img" src=""></div>
+          </div>
+          <div id="alert-customization-inputs-area">
             <div id="upload-files-area">
               <button id="image-file-input-btn">Set Image</button>
               <button id="audio-file-input-btn">Set Audio</button>
@@ -56,12 +60,8 @@
           </div>
         </div>
         <div id="alert-settings-section-2">
-          <label for="alert-text-input">Text to be displayed</label>
+          <label for="alert-text-input">Alert Text</label>
           <input id="alert-text-input" type="text">
-          <div id="alert-text-components-area">
-            <!-- Populate with draggable components that represent viewer name, channel name, number of months, etc.
-                 that can be added to the alert text -->
-          </div>
           <div id="save-or-discard-area">
             <button id="save-alert-btn">Save Alert Settings</button>
             <button id="discard-changes-btn">Discard Changes</button>

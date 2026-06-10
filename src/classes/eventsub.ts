@@ -34,18 +34,30 @@ export class SlitherEventSub {
     ]);
 
     static readonly #subDescriptionMap = new Map<SubscriptionType, string>([
-        ['channel.follow', "Viewer follows your channel"],
-        ['channel.subscribe', "Viewer subscribes to your channel for the first time"],
-        ['channel.subscription.message', "Viewer sends a resubscription notification"],
-        ['channel.subscription.gift', "Viewer contributes one or more gift subs"],
-        ['channel.raid', "Another streamer raids your channel"],
-        ['channel.bits.use', "A viewer uses bits on your channel"],
-        ['channel.channel_points_custom_reward_redemption.add', "A viewer redeems a custom channel points reward"],
-        ['channel.channel_points_custom_reward_redemption.update', "A viewer's channel points reward redemption is updated"],
-        ['channel.hype_train.begin', "A hype train begins on your channel"],
-        ['channel.hype_train.end', "A hype train concludes on your channel"],
-        ['channel.shoutout.receive', "Another broadcaster gives you a shoutout"]
+        ['channel.follow', "New Follow"],
+        ['channel.subscribe', "New Sub"],
+        ['channel.subscription.message', "Resub Message"],
+        ['channel.subscription.gift', "Gift Sub(s)"],
+        ['channel.raid', "Incoming Raid"],
+        ['channel.bits.use', "Bits Received"],
+        ['channel.channel_points_custom_reward_redemption.add', "Channel Point Redeemed"],
+        ['channel.channel_points_custom_reward_redemption.update', "Channel Point Redemption Updated"],
+        ['channel.hype_train.begin', "Hype Train Start"],
+        ['channel.hype_train.end', "Hype Train End"],
+        ['channel.shoutout.receive', "Shoutout Received"]
     ]);
+
+        // ['channel.follow', "Viewer follows your channel"],
+        // ['channel.subscribe', "Viewer subscribes to your channel for the first time"],
+        // ['channel.subscription.message', "Viewer sends a resubscription notification"],
+        // ['channel.subscription.gift', "Viewer contributes one or more gift subs"],
+        // ['channel.raid', "Another streamer raids your channel"],
+        // ['channel.bits.use', "A viewer uses bits on your channel"],
+        // ['channel.channel_points_custom_reward_redemption.add', "A viewer redeems a custom channel points reward"],
+        // ['channel.channel_points_custom_reward_redemption.update', "A viewer's channel points reward redemption is updated"],
+        // ['channel.hype_train.begin', "A hype train begins on your channel"],
+        // ['channel.hype_train.end', "A hype train concludes on your channel"],
+        // ['channel.shoutout.receive', "Another broadcaster gives you a shoutout"]
 
     static readonly #callbackURI = `https://${sslConfig.hostName}/slither/event`;
 
