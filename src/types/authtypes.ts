@@ -2,6 +2,7 @@ import { Request } from 'express';
 
 export type SlitherAuthenticatedRequest = Request & {
     twitchId?: string
+    fileValidationError?: string
 }
 
 export type SlitherTokenType = 'access' | 'refresh' | 'alerts'

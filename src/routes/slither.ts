@@ -195,6 +195,10 @@ router.get('/media/:filename', (req, res) => {
 
 router.post('/alerts', authenticateSlitherUser, alertMediaUploadMiddleware, async (req: SlitherAuthenticatedRequest, res) => {
 
+	if(req.fileValidationError) {
+		return res.status(400).send('Invalid filename');
+	}
+
 	const alertPostReqBody = req.body as AlertPostReqBody;
 
 	const files = req.files as { [fieldname: string]: Express.Multer.File[] };
