@@ -255,26 +255,26 @@ router.post('/alerts/media', jsonParser, authenticateSlitherUser, async (req: Sl
 
 });
 
-router.get('/public/media/:filename', async (_req, res) => {
+router.get('/public/media/:filename', async (req, res) => {
 
 	try {
-		return res.status(200).sendFile(`${appConfig.appPath}/public/media/favicon.ico`);
+		return res.status(200).header('Content-Type', 'image/x-icon').sendFile(`${appConfig.appPath}/public/media/${req.params['filename']}`);
 	} catch (e) {
 		console.error(`Error handling /public/media/:filename endpoint: ${e}`)
 		return res.sendStatus(404);
 	}
 
-})
+});
 
 router.get('/favicon', async (_req, res) => {
 
 	try {
-		return res.status(200).download(`${appConfig.appPath}/public/media/dari-badge-silhouette-nocorners-400px.png`, 'dari.ico');
+		return res.status(200).sendFile(`${appConfig.appPath}/public/media/favicon.ico`);
 	} catch (e) {
 		return res.sendStatus(404);
 	}
 
-})
+});
 
 router.post('/alerts', authenticateSlitherUser, alertMediaUploadMiddleware, async (req: SlitherAuthenticatedRequest, res) => {
 

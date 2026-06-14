@@ -23,6 +23,6 @@ function initializeNavbar() {
     githubLI.rel = "noopener noreferrer";
 
     const img = githubLI.appendChild(document.createElement('img'));
-    img.src = "/slither/favicon";
+    img.src = "/slither/public/media/dari-github-400px.png";
 
 }
