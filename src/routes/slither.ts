@@ -3,7 +3,6 @@ import express from 'express';
 import bodyParser from 'body-parser';
 import crypto from 'crypto';
 import fs from 'fs';
-import path from 'path';
 import mime from 'mime/lite';
 
 // .env configuration imports
@@ -256,7 +255,7 @@ router.post('/alerts/media', jsonParser, authenticateSlitherUser, async (req: Sl
 
 });
 
-router.get('/public/media/:filename', async (req, res) => {
+router.get('/public/media/:filename', async (_req, res) => {
 
 	try {
 		return res.status(200).sendFile(`${appConfig.appPath}/public/media/favicon.ico`);
@@ -313,8 +312,8 @@ router.post('/alerts', authenticateSlitherUser, alertMediaUploadMiddleware, asyn
 	const { image_file, audio_file } = (await eventalertssql.getAlert(subId)) || { audio_file: undefined, image_file: undefined };
 
 	await eventalertssql.updateAlert(subId, updateData);
-	if(image_file) {/*delete old image file*/}
-	if(audio_file) {/*delete old audio file*/}
+	if(image_file) { /*delete old image file*/ }
+	if(audio_file) { /*delete old audio file*/ }
 
 	res.sendStatus(204);
 

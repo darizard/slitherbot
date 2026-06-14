@@ -93,7 +93,6 @@ function setAlertText(event) {
 function playAlertAudio(event) {
 
     document.querySelector('#alert-audio').currentTime = 0;
-    document.querySelector('#alert-audio').load();
     document.querySelector('#alert-audio').play();
 
 }
@@ -329,9 +328,9 @@ async function uploadAlert() {
         const audioBlob = await fetch(audioUrl).then(r => r.blob());
         data.append('audioBlob', audioBlob, unsavedAlert.audioFile);
     }
-    data.append('audioVolume', unsavedAlert.audioVolume);
-    data.append('alertDuration', unsavedAlert.alertDuration);
-    data.append('alertText', unsavedAlert.alertText);
+    if(unsavedAlert.audioVolume) data.append('audioVolume', unsavedAlert.audioVolume);
+    if(unsavedAlert.alertDuration) data.append('alertDuration', unsavedAlert.alertDuration);
+    if(unsavedAlert.alertText) data.append('alertText', unsavedAlert.alertText);
     data.append('subscriptionId', mappedAlert.subscriptionId);
 
     const res = await fetch('/slither/alerts', {

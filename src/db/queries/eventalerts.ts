@@ -1,10 +1,12 @@
+import { db } from '../database.js';
 import { Selectable, UpdateResult } from 'kysely';
 import { DB } from 'kysely-codegen';
+
 import { SlitherEventAlerts } from '../../classes/eventalerts.js';
 import { SlitherEventSub } from '../../classes/eventsub.js';
+
 import type { AlertUpdateData, EventAlertCategory, EventAlertDetails } from '../../types/alerttypes.js';
 import type { SubscriptionType } from '../../types/eventsubtypes.js';
-import { db } from '../database.js';
 
 export async function initEventAlerts(): Promise<void> {
 
@@ -14,7 +16,7 @@ export async function initEventAlerts(): Promise<void> {
     const eventSubs = await db.selectFrom('EventSubs')
                         .select(['type', 'id'])
                         .execute();
-                
+
     const vals: {sub_id: string, audio_volume: number, category: EventAlertCategory | null}[] = [];
     eventSubs.forEach((eventSub) => {
         const category = SlitherEventAlerts.eventToCategoryMap.get(eventSub.type as SubscriptionType) ?? null
@@ -68,8 +70,11 @@ export async function getAlert(subId: string): Promise<Selectable<DB['EventAlert
 
 }
 
-export async function updateAlert(subId: string, alertDetails: AlertUpdateData): Promise<UpdateResult> {
+export async function updateAlert(subId: string, alertDetails: AlertUpdateData): Promise<UpdateResult | undefined> {
 
+    alertDetails = Object.fromEntries(Object.entries(alertDetails).filter(([_, v]) => v !== undefined));
+    if(Object.keys(alertDetails).length === 0) return;
+    
     return await db.updateTable('EventAlerts')
         .set(alertDetails)
         .where('sub_id', '=', subId)
