@@ -34,6 +34,7 @@ document.querySelectorAll('.alerts-category-btn').forEach((btn) => {
         await switchAlertCategory(btn.textContent, event);
     });
 });
+
 document.querySelectorAll('button').forEach((btn) => {
     btn.addEventListener('click', (event) => {
         event.currentTarget.blur();
@@ -93,7 +94,7 @@ function setAlertText(event) {
 function playAlertAudio(event) {
 
     document.querySelector('#alert-audio').currentTime = 0;
-    document.querySelector('#alert-audio').play();
+    document.querySelector('#alert-audio').play().catch((err) => { });
 
 }
 
@@ -188,6 +189,10 @@ async function changeSelectedAlert(type) {
     if(type === selectedAlertType) return;
     clearTimeout(alertPreviewTimeout);
 
+    document.querySelector('#alert-img-thumb').setAttribute('src', '');
+    document.querySelector('#alert-img').setAttribute('src', '');
+    document.querySelector('#alert-audio').setAttribute('src', '');
+
     const newSelectedBtn = document.querySelector(`#${type}-alert-type-btn`);
     newSelectedBtn.classList.add('selected-alert');
     
@@ -211,28 +216,24 @@ async function displayAlertDetails(alert) {
     const textVal = unsavedAlert?.alertText || alert.alertText || DEFAULT_ALERT_DETAILS.alertText;
     const audioFileVal = unsavedAlert?.audioFile || alert.audioFile || DEFAULT_ALERT_DETAILS.audioFile;
 
+    const alertMediaData = alertsMedia.get(alert.subscriptionType) 
+                            ?? alertsMedia.set(alert.subscriptionType, { imageUrl: undefined, imageName: undefined, audioUrl: undefined, audioName: undefined })
+                                          .get(alert.subscriptionType);
+
     let imageUrl = unsavedAlertsMedia.get(alert.subscriptionType)?.imageUrl || alertsMedia.get(alert.subscriptionType)?.imageUrl;
     let audioUrl = unsavedAlertsMedia.get(alert.subscriptionType)?.audioUrl || alertsMedia.get(alert.subscriptionType)?.audioUrl;
     const APImedia = await getAlertMediaBySubId(alert.subscriptionId, imageUrl === undefined, audioUrl === undefined)
 
-    const alertMediaData = alertsMedia.get(alert.subscriptionType);
-    if(alertMediaData) {
-        if(APImedia?.imageBlob) {
-            URL.revokeObjectURL(alertMediaData.imageUrl);
-            imageUrl = alertMediaData.imageUrl = URL.createObjectURL(APImedia.imageBlob);
-            alertMediaData.imageName = APImedia.imageFileName;
-        } 
-        if(APImedia?.audioBlob) {
-            URL.revokeObjectURL(alertMediaData.audioUrl);
-            audioUrl = alertMediaData.audioUrl = URL.createObjectURL(APImedia.audioBlob);
-            alertMediaData.audioName = APImedia.audioFileName;
-        } 
-    } else {
-        alertsMedia.set(alert.subscriptionType, { 
-            imageUrl: APImedia.imageUrl, imageName: APImedia.imageFileName,
-            audioUrl: APImedia.audioUrl, audioName: APImedia.audioName
-         });
-    }
+    if(APImedia?.imageBlob) {
+        URL.revokeObjectURL(alertMediaData.imageUrl);
+        imageUrl = alertMediaData.imageUrl = URL.createObjectURL(APImedia.imageBlob);
+        alertMediaData.imageName = APImedia.imageFileName;
+    } 
+    if(APImedia?.audioBlob) {
+        URL.revokeObjectURL(alertMediaData.audioUrl);
+        audioUrl = alertMediaData.audioUrl = URL.createObjectURL(APImedia.audioBlob);
+        alertMediaData.audioName = APImedia.audioFileName;
+    } 
     
 
     document.querySelector('#alert-audio-filename').value = audioFileVal;
@@ -240,8 +241,8 @@ async function displayAlertDetails(alert) {
     document.querySelector('#alert-duration-input').value = durationVal / 1000;
     document.querySelector('#alert-text-input').value = textVal || '';
 
-    document.querySelector('#alert-img-thumb').setAttribute('src', imageUrl ?? APImedia.imageUrl ?? '');
-    document.querySelector('#alert-audio').setAttribute('src', audioUrl ?? APImedia.audioUrl ?? '');
+    document.querySelector('#alert-img-thumb').setAttribute('src', imageUrl ?? APImedia?.imageUrl ?? '');
+    document.querySelector('#alert-audio').setAttribute('src', audioUrl ?? APImedia?.audioUrl ?? '');
 
 }
 
