@@ -7,7 +7,9 @@ export type EventAlertDetails = {
     category: EventAlertCategory
     subscriptionId: string
     subscriptionType: SubscriptionType
+    imageFile: string | null
     imageFileName: string | null
+    audioFile: string | null
     audioFileName: string | null
     alertText: string | null
     alertDuration: number | null

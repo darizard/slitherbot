@@ -133,4 +133,13 @@ export async function deleteEventSub(subId: string): Promise<boolean> {
 
 }
 
+export async function getSubById(subId: string): Promise<Selectable<DB['EventSubs']> | undefined> {
+
+    return await db.selectFrom('EventSubs')
+                    .selectAll()
+                    .where('id', '=', subId)
+                    .executeTakeFirst()
+
+}
+
 export * as default from './eventsub.js';

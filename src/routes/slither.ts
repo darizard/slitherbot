@@ -2,9 +2,12 @@
 import express from 'express';
 import bodyParser from 'body-parser';
 import crypto from 'crypto';
+import fs from 'fs';
+import path from 'path';
+import mime from 'mime/lite';
 
 // .env configuration imports
-import { ssl as sslConfig, twitch as twitchConfig, ws as wsConfig } from '../config.js';
+import { ssl as sslConfig, twitch as twitchConfig, ws as wsConfig, app as appConfig } from '../config.js';
 
 // Internal abstraction classes
 import { SlitherControllerClientWebSocket } from '../classes/slitherws.js';
@@ -30,6 +33,7 @@ import { SlitherEventSub } from '../classes/eventsub.js';
 // Direct DB queries
 import slithersql from '../db/queries/slitherauth.js';
 import eventalertssql from '../db/queries/eventalerts.js';
+import eventsubsql from '../db/queries/eventsub.js';
 
 const AUTH_REDIRECT_URI = new URL(`https://${sslConfig.hostName}/slither/oauth`);
 const AUTH_STATES = new Set<string>();
@@ -99,15 +103,28 @@ router.post('/event', rawParser, verifyTwitchEventMessage, async (req, res) => {
 			res.sendStatus(204);
 
 			const userId = SlitherEventSub.broadcasterOf(req.body.subscription.condition, req.body.subscription.type);
+			const alertDetails = await eventalertssql.getAlert(req.body.subscription.id);
 
-			// TODO: Build alert message based on DB information!
 			// send the reward redemption info to the WebSocket server
-			const wsmsgobj: AlertMessage = { type: 'alert', 
-											userId: userId,
-											data: { imageFile: 'headpatsgohard.gif', 
-													audioFile: 'DiscordMute.mp3', 
-													alertText: 'Reward Text!', 
-													duration: 8000 } };
+			const wsmsgobj: AlertMessage = alertDetails ? {
+													type: 'alert',
+													userId: userId,
+													data: {
+														imageFile: alertDetails.image_file,
+														audioFile: alertDetails.audio_file,
+														alertText: alertDetails.alert_text,
+														duration: alertDetails.duration
+													}
+												  } :
+												  { 
+													type: 'alert', 
+													userId: userId,
+													data: { imageFile: 'headpatsgohard.gif', 
+															audioFile: 'DiscordMute.mp3', 
+															alertText: 'Reward Text!', 
+															duration: 8000 } 
+												  };
+
 			ws.send(wsmsgobj);
 
 		}
@@ -174,17 +191,20 @@ router.post('/alerts/token', jsonParser, async (req, res) => {
 
 // TODO: Validate that the requested file has been uploaded by the same user who is making the request. Requests to 
 // this endpoint should only come from the alerts.ejs view after the server sends it a secure message over the websocket.
-router.get('/media/:filename', (req, res) => {
+router.get('/alerts/media/:alertstoken/:filename', async (req, res) => {
 
-	// Allow only a-z, A-Z, 0-9, and the literals - and _ in file names. Files supported are only:
-	// { .gif, .png, .jpg, .mp3, .wav, .ico }
-	const ALLOWED_MEDIA_STRICT = /^[\w\-\_]+\.(?i:gif|png|jpg|mp3|wav|ico)$/;
+	// Incoming filename references the hex charset filename stored in the user-specific media folder
 	const fileName: string = req.params['filename'] as string;
-	if(!ALLOWED_MEDIA_STRICT.test(fileName)) {
-		return res.status(404).end();
-	}
+	const userId = await slithersql.getUserIDForAlertsToken(req.params['alertstoken'] as string);
+	const friendlyFileName = await eventalertssql.getFriendlyFileName(fileName);
 
-	res.status(200).sendFile(`/opt/slitherbot/public/media/${fileName}`, (err) => {
+	if(!friendlyFileName) {
+		return res.status(500).send('Oops. Could not find filename for requested media. Things are probably broken. :(');
+	}
+	
+	res.status(200).download(`${appConfig.appPath}/resources/alertmedia/${userId}/${fileName}`, 
+							  friendlyFileName,
+							  (err) => {
 		if(err) {
 			console.error(`Error sending media file ${fileName} in response to request at /media/:filename endpoint. Error: ${err}`);
 			res.status(404).end();
@@ -192,6 +212,70 @@ router.get('/media/:filename', (req, res) => {
 	});
 
 });
+
+// Primarily for serving media files to the home page for the alerts customization dashboard
+router.post('/alerts/media', jsonParser, authenticateSlitherUser, async (req: SlitherAuthenticatedRequest, res) => {
+
+	const alert = await eventalertssql.getAlert(req.body.subId);
+	if(!alert) return res.sendStatus(404);
+
+	const subType = await eventsubsql.getSubById(alert.sub_id);
+	if(!subType) {
+		console.error('Sub exists with invalid type. Investigate.');
+		return res.sendStatus(500);
+	}
+
+	let imageFileBuffer = null;
+	let imageFileName = null;
+	let imageFileMime = null;
+	let audioFileBuffer = null;
+	let audioFileName = null;
+	let audioFileMime = null;
+
+	try {
+		if(req.body.getImage && alert.image_file) {
+			imageFileBuffer = await fs.promises.readFile(`${appConfig.appPath}/resources/alertmedia/${req.twitchId}/${alert.image_file}`);
+			imageFileName = alert.image_file_name ?? '';
+			imageFileMime = mime.getType(imageFileName)
+		}
+		if(req.body.getAudio && alert.audio_file) {
+			audioFileBuffer = await fs.promises.readFile(`${appConfig.appPath}/resources/alertmedia/${req.twitchId}/${alert.audio_file}`);
+			audioFileName = alert.audio_file_name ?? '';
+			audioFileMime = mime.getType(audioFileName);
+		}
+	} catch(e) {
+		console.error(`Probably asked for a file we don't have`);
+		console.log(`Alert returned from db: ${JSON.stringify(alert)}`);
+		return res.sendStatus(500);
+	}
+
+	return res.status(200).json({
+		imageBase64: imageFileBuffer?.toString('base64'), imageFileName: imageFileName, imageFileMime: imageFileMime,
+		audioBase64: audioFileBuffer?.toString('base64'), audioFileName: audioFileName, audioFileMime: audioFileMime
+	});
+
+});
+
+router.get('/public/media/:filename', async (req, res) => {
+
+	try {
+		return res.status(200).sendFile(`${appConfig.appPath}/public/media/favicon.ico`);
+	} catch (e) {
+		console.error(`Error handling /public/media/:filename endpoint: ${e}`)
+		return res.sendStatus(404);
+	}
+
+})
+
+router.get('/favicon', async (_req, res) => {
+
+	try {
+		return res.status(200).download(`${appConfig.appPath}/public/media/dari-badge-silhouette-nocorners-400px.png`, 'dari.ico');
+	} catch (e) {
+		return res.sendStatus(404);
+	}
+
+})
 
 router.post('/alerts', authenticateSlitherUser, alertMediaUploadMiddleware, async (req: SlitherAuthenticatedRequest, res) => {
 
@@ -438,6 +522,13 @@ router.get('/logout', (_req, res) => {
 
 });
 
+router.get('/sqltest', async (_req, res) => {
+
+	console.log('No test query defined at the moment.');
+	res.sendStatus(204);
+
+})
+
 // TODO: For the base route, if Slither can authenticate the user, redirect to home. Otherwise nudge them to authenticate
 // with Twitch
 // GET /slither simply redirects the user to /slither/home
@@ -456,7 +547,6 @@ router.get('/:badroute', (req, res) => {
 	res.redirect(`/slither/home`);
 
 });
-
 
 export default { router };
 export { router };

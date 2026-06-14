@@ -13,10 +13,10 @@ export type AlertMessage = WSMessage & {
     type: 'alert',
     userId: string,
     data: {
-        imageFile: string | undefined,
-        audioFile: string | undefined,
-        alertText: string | undefined,
-        duration: number | undefined
+        imageFile: string | null,
+        audioFile: string | null,
+        alertText: string | null,
+        duration: number | null
     }
 }
 

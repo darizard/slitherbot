@@ -1,5 +1,6 @@
 let socket
 connectWebSocket()
+const alertsToken = window.location.pathname.substring(window.location.pathname.lastIndexOf('/') + 1);
 
   function connectWebSocket() {
 
@@ -58,13 +59,13 @@ connectWebSocket()
         if(messageJSON.data.imageFile) {
 
           alertImageElement.style.display = 'inline'
-          alertImageElement.src = "/slither/media/" + (messageJSON.data.imageFile || '')
+          alertImageElement.src = `/slither/alerts/media/${alertsToken}/${messageJSON.data.imageFile}`
 
         }
 
         if(messageJSON.data.audioFile) {
 
-          alertAudioElement.src = "/slither/media/" + (messageJSON.data.audioFile || '')
+          alertAudioElement.src = `/slither/alerts/media/${alertsToken}/${messageJSON.data.audioFile}`
           alertAudioElement.play()
 
         }

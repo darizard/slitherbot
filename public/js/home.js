@@ -28,7 +28,7 @@ document.querySelector('#alert-duration-input').addEventListener('input', setAle
 document.querySelector('#alert-text-input').addEventListener('input', setAlertText);
 document.querySelector('#play-audio-btn').addEventListener('click', playAudioBtnClicked);
 document.querySelector('#save-alert-btn').addEventListener('click', uploadAlert);
-document.querySelector('#discard-changes-btn').addEventListener('click', clearAlertDetails);
+document.querySelector('#discard-changes-btn').addEventListener('click', discardAlertChanges);
 document.querySelectorAll('.alerts-category-btn').forEach((btn) => {
     btn.addEventListener('click', async (event) => {
         await switchAlertCategory(btn.textContent, event);
@@ -39,8 +39,16 @@ document.querySelectorAll('button').forEach((btn) => {
         event.currentTarget.blur();
     });
 });
+document.getElementById('test-sql-button').addEventListener('click', async () => {
+    await fetch('/slither/sqltest', { method: 'GET' });
+});
 
 async function initializePage() {
+
+    document.querySelector(`#image-file-input`)
+        .setAttribute('accept', 'image/apng, image/avif, image/gif, image/jpeg, image/png, image/svg+xml, image/webp');
+    document.querySelector(`#audio-file-input`)
+        .setAttribute('accept', 'audio/mpeg, audio/wav, audio/mp4');
 
     document.querySelector(`#${defaultCategory.toLowerCase().replace(' ', '')}-alerts-category-btn`).click();
 
@@ -85,6 +93,7 @@ function setAlertText(event) {
 function playAlertAudio(event) {
 
     document.querySelector('#alert-audio').currentTime = 0;
+    document.querySelector('#alert-audio').load();
     document.querySelector('#alert-audio').play();
 
 }
@@ -142,9 +151,9 @@ async function switchAlertCategory(category, event) {
         const subType = alertsMap.get(category)[i].subscriptionType;
         newButton.setAttribute('id', `${subType}-alert-type-btn`);
         newButton.classList.add('alert-type-btn');
-        newButton.addEventListener('click', (event) => {
-            changeSelectedAlert(newButton.id.split('-')[0], event);
-            event.currentTarget.blur();
+        newButton.addEventListener('click', async (event) => {
+            await changeSelectedAlert(newButton.id.split('-')[0], event);
+            event.target.blur();
         });
         newButton.tabIndex = 0;
 
@@ -203,9 +212,29 @@ async function displayAlertDetails(alert) {
     const textVal = unsavedAlert?.alertText || alert.alertText || DEFAULT_ALERT_DETAILS.alertText;
     const audioFileVal = unsavedAlert?.audioFile || alert.audioFile || DEFAULT_ALERT_DETAILS.audioFile;
 
-    const imageUrl = unsavedAlertsMedia.get(alert.subscriptionType)?.imageUrl || alertsMedia.get(alert.subscriptionType)?.imageUrl;
-    const audioUrl = unsavedAlertsMedia.get(alert.subscriptionType)?.audioUrl || alertsMedia.get(alert.subscriptionType)?.audioUrl;
-    const APImedia = await getMedia(alert.subscriptionId, (imageUrl === undefined), (audioUrl === undefined))
+    let imageUrl = unsavedAlertsMedia.get(alert.subscriptionType)?.imageUrl || alertsMedia.get(alert.subscriptionType)?.imageUrl;
+    let audioUrl = unsavedAlertsMedia.get(alert.subscriptionType)?.audioUrl || alertsMedia.get(alert.subscriptionType)?.audioUrl;
+    const APImedia = await getAlertMediaBySubId(alert.subscriptionId, imageUrl === undefined, audioUrl === undefined)
+
+    const alertMediaData = alertsMedia.get(alert.subscriptionType);
+    if(alertMediaData) {
+        if(APImedia?.imageBlob) {
+            URL.revokeObjectURL(alertMediaData.imageUrl);
+            imageUrl = alertMediaData.imageUrl = URL.createObjectURL(APImedia.imageBlob);
+            alertMediaData.imageName = APImedia.imageFileName;
+        } 
+        if(APImedia?.audioBlob) {
+            URL.revokeObjectURL(alertMediaData.audioUrl);
+            audioUrl = alertMediaData.audioUrl = URL.createObjectURL(APImedia.audioBlob);
+            alertMediaData.audioName = APImedia.audioFileName;
+        } 
+    } else {
+        alertsMedia.set(alert.subscriptionType, { 
+            imageUrl: APImedia.imageUrl, imageName: APImedia.imageFileName,
+            audioUrl: APImedia.audioUrl, audioName: APImedia.audioName
+         });
+    }
+    
 
     document.querySelector('#alert-audio-filename').value = audioFileVal;
     document.querySelector('#audio-volume-input').value = volumeVal / 100;
@@ -324,7 +353,7 @@ async function uploadAlert() {
 
 }
 
-function clearAlertDetails() {
+async function discardAlertChanges() {
     
     document.querySelector('#alert-audio').removeAttribute('src');
     document.querySelector('#alert-img-thumb').removeAttribute('src');
@@ -344,7 +373,7 @@ function clearAlertDetails() {
     });
 
     document.querySelector(`#${selectedAlertType}-alert-type-btn`).textContent = alertToRestore.alertDescription;
-    displayAlertDetails(alertToRestore);
+    await displayAlertDetails(alertToRestore);
 
 }
 
@@ -361,12 +390,48 @@ function updateUnsavedAlert(attr, val) {
 
 }
 
-async function getMedia(subType, getImage, getAudio) {
+async function getAlertMediaBySubId(subId, getImage, getAudio) {
 
-    if(!getImage && !getAudio) return;
+    console.log(`subId: ${subId}, getImage: ${getImage}, getAudio: ${getAudio}`);
 
-    return { image: '', audio: '' };
+    if(!getImage && !getAudio) return null;
 
-    console.log(`subType: ${subType}, getImage: ${getImage}, getAudio: ${getAudio}`);
+    // Endpoint returns JSON with { imageBase64: <Blob>, imageFileName: <string>, imageFileMime: <string>
+    //                              audioBase64: <Blob>, audioFileName: <string>, audioFileMime: <string>
+    //                              subType: <SubscriptionType> }
+    const response = await fetch(`/slither/alerts/media`, { method: 'POST',
+                                                            headers: { 'Content-Type': 'application/json' } ,
+                                                               body: JSON.stringify({
+                                                                   subId: subId,
+                                                                   getImage: getImage,
+                                                                   getAudio, getAudio
+                                                               })
+    });
+
+    const resJson = await response.json();
+
+    APImedia = { imageBlob: null, imageFileName: null, audioBlob: null, audioFileName: null };
+
+    if(resJson.imageBase64) {
+        const binaryString = atob(resJson.imageBase64);
+        const bytes = new Uint8Array(binaryString.length);
+        for(let i = 0; i < binaryString.length; i++) {
+            bytes[i] = binaryString.charCodeAt(i);
+        }
+        APImedia.imageBlob = new Blob([bytes], { type: resJson.imageFileMime });
+        APImedia.imageFileName = resJson.imageFileName;
+    }
+
+    if(resJson.audioBase64) {
+        const binaryString = atob(resJson.audioBase64);
+        const bytes = new Uint8Array(binaryString.length);
+        for(let i = 0; i < binaryString.length; i++) {
+            bytes[i] = binaryString.charCodeAt(i);
+        }
+        APImedia.audioBlob = new Blob([bytes], { type: resJson.audioFileMime });
+        APImedia.audioFileName = resJson.audioFileName;
+    }
+
+    return APImedia;
 
 }

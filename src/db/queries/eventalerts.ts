@@ -33,35 +33,30 @@ export async function initEventAlerts(): Promise<void> {
 
 }
 
-export async function getUserAlerts(twitchId: string | undefined): Promise<({ category: EventAlertCategory} & EventAlertDetails)[]> {
+export async function getUserAlerts(twitchId: string | undefined): Promise<EventAlertDetails[]> {
 
     if(!twitchId) return [];
 
-    const eventAlertsRaw = await db.selectFrom('EventAlerts')
+    const joinQuery = db.selectFrom('EventAlerts')
+                    .selectAll('EventAlerts')
                     .leftJoin('EventSubs', 'EventSubs.id', 'EventAlerts.sub_id')
-                    .select(['EventAlerts.sub_id', 'EventSubs.type', 'EventAlerts.image_file', 'EventAlerts.image_file_name',
-                             'EventAlerts.audio_file', 'EventAlerts.audio_file_name', 'EventAlerts.alert_text', 'EventAlerts.duration', 
-                             'EventAlerts.audio_volume', 'EventAlerts.category'])
-                    .where('EventSubs.channel_id', '=', twitchId)
-                    .execute();
+                    .selectAll('EventSubs')
+                    .as('joinQuery');
 
-    return (() => {
-        const rtnArr: ({ category: EventAlertCategory } & EventAlertDetails)[] = [];
-        eventAlertsRaw.forEach((eventAlertRaw) => {
-            rtnArr.push({
-                category: eventAlertRaw.category as EventAlertCategory,
-                subscriptionId: eventAlertRaw.sub_id,
-                subscriptionType: eventAlertRaw.type as SubscriptionType,
-                imageFileName: eventAlertRaw.image_file_name,
-                audioFileName: eventAlertRaw.audio_file_name,
-                alertText: eventAlertRaw.alert_text,
-                alertDuration: eventAlertRaw.duration,
-                audioVolume: eventAlertRaw.audio_volume,
-                alertDescription: SlitherEventSub.descriptionOf(eventAlertRaw.type as SubscriptionType)
-            });
-        });
-        return rtnArr;
-    })();
+    const result = await db.selectFrom(joinQuery)
+                    .select(['category', 'sub_id as subscriptionId', 'type as subscriptionType',
+                             'image_file as imageFile', 'audio_file as audioFile',
+                             'image_file_name as imageFileName', 'audio_file_name as audioFileName',
+                             'alert_text as alertText', 'duration as alertDuration',
+                             'audio_volume as audioVolume'])
+                    .where('channel_id', '=', twitchId)
+                    .execute() as EventAlertDetails[];
+
+    for(const alert of result) {
+        alert.alertDescription = SlitherEventSub.descriptionOf(alert.subscriptionType);
+    }
+
+    return result;
 }
 
 export async function getAlert(subId: string): Promise<Selectable<DB['EventAlerts']> | undefined> {
@@ -80,6 +75,39 @@ export async function updateAlert(subId: string, alertDetails: AlertUpdateData):
         .where('sub_id', '=', subId)
         .executeTakeFirst();
 
+}
+
+export async function getFriendlyFileName(filename: string): Promise<string | null> {
+
+    const union = db.selectFrom('EventAlerts')
+        .select(['audio_file as hostile_name', 'audio_file_name as friendly_name'])
+        .union((qb) => qb.selectFrom('EventAlerts')
+                         .select(['image_file as hostile_name','image_file_name as friendly_name']))
+        .as('UnionedNames');
+
+    const resultObj = await db.selectFrom(union)
+        .select('friendly_name')
+        .where('hostile_name', '=', filename)
+        .executeTakeFirst();
+
+    return resultObj?.friendly_name || null;
+
+}
+
+export async function testQuery(filename: string): Promise<string | null> {
+
+    const union = db.selectFrom('EventAlerts')
+        .select(['audio_file as hostile_name', 'audio_file_name as friendly_name'])
+        .union((qb) => qb.selectFrom('EventAlerts')
+                         .select(['image_file as hostile_name','image_file_name as friendly_name']))
+        .as('UnionedNames');
+
+    const resultObj = await db.selectFrom(union)
+        .select('friendly_name')
+        .where('hostile_name', '=', filename)
+        .executeTakeFirst();
+
+    return resultObj?.friendly_name || null;
 }
 
 export * as default from './eventalerts.js';

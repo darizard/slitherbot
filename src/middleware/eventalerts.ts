@@ -5,7 +5,7 @@ import { SlitherAuthenticatedRequest } from '../types/authtypes.js';
 import path from 'path';
 
 const REPLACE_CHARS_BASE = /[^\w\-]/g;
-const ALLOWED_EXT = /^\.(?i:gif|png|jpg|mp3|wav|ico)$/;
+const ALLOWED_EXT = /^\.(?i:apng|avif|gif|jpg|jpeg|jfif|pjpeg|pjp|png|svg|webp|mp3|wav|m4a)$/;
 
 const storage = multer.diskStorage({
     destination: function (req: SlitherAuthenticatedRequest, _file, cb) {
@@ -37,6 +37,7 @@ const fileFilter = (req: SlitherAuthenticatedRequest, file: Express.Multer.File,
 
 export const alertMediaUploadMiddleware = multer({ 
         storage: storage,
+        limits: { fileSize: 5e+6 },
         fileFilter: fileFilter })
     .fields([
         { name: 'imageBlob', maxCount: 1 },
