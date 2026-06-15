@@ -40,7 +40,7 @@ export class SlitherEventSub {
         ['channel.subscription.gift', "Gift Sub(s)"],
         ['channel.raid', "Incoming Raid"],
         ['channel.bits.use', "Bits Received"],
-        ['channel.channel_points_custom_reward_redemption.add', "Channel Point Redeemed"],
+        ['channel.channel_points_custom_reward_redemption.add', "Channel Points Redeemed"],
         ['channel.channel_points_custom_reward_redemption.update', "Channel Point Redemption Updated"],
         ['channel.hype_train.begin', "Hype Train Start"],
         ['channel.hype_train.end', "Hype Train End"],

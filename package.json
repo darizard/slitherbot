@@ -11,16 +11,6 @@
     "node": ">=25.2.1"
   },
   "dependencies": {
-    "@types/express": "^5.0.6",
-    "@types/express-serve-static-core": "^5.1.1",
-    "@types/multer": "^2.1.0",
-    "@types/mysql": "^2.15.27",
-    "@types/node": "^25.1.0",
-    "@types/node-fetch": "^2.6.13",
-    "@types/qs": "^6.14.0",
-    "@types/range-parser": "^1.2.7",
-    "@types/send": "^1.2.1",
-    "@types/ws": "^8.18.1",
     "body-parser": "^1.20.3",
     "cookie-parser": "^1.4.7",
     "dotenv": "^17.2.3",
@@ -34,7 +24,6 @@
     "mysql": "^2.18.1",
     "mysql2": "^3.17.1",
     "path": "^0.12.7",
-    "typescript": "^5.9.3",
     "ws": "^8.20.0",
     "zod": "^4.3.6"
   },
@@ -42,13 +31,23 @@
     "minimatch": "^10.2.2"
   },
   "scripts": {
-    "dev": "nodemon --inspect ./src/server.js",
-    "postinstall": "npm run tsc",
+    "dev": "nodemon --inspect ./src/server.ts",
+    "build": "npm run tsc",
     "start": "export NVM_DIR=\"$HOME/.nvm\"; [ -s \"$NVM_DIR/nvm.sh\" ] && . \"$NVM_DIR/nvm.sh\"; nvm run ./built/server.js",
     "test": "vitest",
     "tsc": "tsc; npx kysely-codegen; rm -r built/views; cp src/views built -r"
   },
   "devDependencies": {
+    "@types/express": "^5.0.6",
+    "@types/express-serve-static-core": "^5.1.1",
+    "@types/multer": "^2.1.0",
+    "@types/mysql": "^2.15.27",
+    "@types/node": "^25.1.0",
+    "@types/node-fetch": "^2.6.13",
+    "@types/qs": "^6.14.0",
+    "@types/range-parser": "^1.2.7",
+    "@types/send": "^1.2.1",
+    "@types/ws": "^8.18.1",
     "@eslint/js": "^10.0.1",
     "@types/cookie-parser": "^1.4.10",
     "@types/supertest": "^7.2.0",
@@ -57,6 +56,7 @@
     "nodemon": "^3.1.14",
     "supertest": "^7.2.2",
     "tsx": "^4.21.0",
+    "typescript": "^5.9.3",
     "typescript-eslint": "^8.56.1",
     "vitest": "^4.0.18"
   }

@@ -17,32 +17,6 @@ const DEFAULT_ALERT_DETAILS = {
 };
 
 document.addEventListener('DOMContentLoaded', initializePage);
-document.querySelector('#alert-preview-btn').addEventListener('click', previewAlert);
-document.querySelector('#copy-alerts-url-btn').addEventListener('click', copyAlertsUrlToClipboard);
-document.querySelector('#image-file-input').addEventListener('change', setAlertImage);
-document.querySelector('#image-file-input-btn').addEventListener('click', imageFileInputBtnClicked);
-document.querySelector('#audio-file-input').addEventListener('change', setAudioFile);
-document.querySelector('#audio-file-input-btn').addEventListener('click', audioFileInputBtnClicked);
-document.querySelector('#audio-volume-input').addEventListener('input', setAudioVolume);
-document.querySelector('#alert-duration-input').addEventListener('input', setAlertDuration);
-document.querySelector('#alert-text-input').addEventListener('input', setAlertText);
-document.querySelector('#play-audio-btn').addEventListener('click', playAudioBtnClicked);
-document.querySelector('#save-alert-btn').addEventListener('click', uploadAlert);
-document.querySelector('#discard-changes-btn').addEventListener('click', discardAlertChanges);
-document.querySelectorAll('.alerts-category-btn').forEach((btn) => {
-    btn.addEventListener('click', async (event) => {
-        await switchAlertCategory(btn.textContent, event);
-    });
-});
-
-document.querySelectorAll('button').forEach((btn) => {
-    btn.addEventListener('click', (event) => {
-        event.currentTarget.blur();
-    });
-});
-document.getElementById('test-sql-button').addEventListener('click', async () => {
-    await fetch('/slither/sqltest', { method: 'GET' });
-});
 
 async function initializePage() {
 
@@ -60,6 +34,36 @@ async function initializePage() {
     }));
 
     lastAlertForCategory.set(defaultCategory, defaultAlertType);
+
+    await addEventListeners();
+
+}
+
+async function addEventListeners() {
+
+    document.querySelector('#alert-preview-btn').addEventListener('click', previewAlert);
+    document.querySelector('#copy-alerts-url-btn').addEventListener('click', copyAlertsUrlToClipboard);
+    document.querySelector('#image-file-input').addEventListener('change', setAlertImage);
+    document.querySelector('#image-file-input-btn').addEventListener('click', imageFileInputBtnClicked);
+    document.querySelector('#audio-file-input').addEventListener('change', setAudioFile);
+    document.querySelector('#audio-file-input-btn').addEventListener('click', audioFileInputBtnClicked);
+    document.querySelector('#audio-volume-input').addEventListener('input', setAudioVolume);
+    document.querySelector('#alert-duration-input').addEventListener('input', setAlertDuration);
+    document.querySelector('#alert-text-input').addEventListener('input', setAlertText);
+    document.querySelector('#play-audio-btn').addEventListener('click', playAudioBtnClicked);
+    document.querySelector('#save-alert-btn').addEventListener('click', uploadAlert);
+    document.querySelector('#discard-changes-btn').addEventListener('click', discardAlertChanges);
+    document.querySelectorAll('.alerts-category-btn').forEach((btn) => {
+        btn.addEventListener('click', async (event) => {
+            await switchAlertCategory(btn.textContent, event);
+        });
+    });
+
+    document.querySelectorAll('button').forEach((btn) => {
+        btn.addEventListener('click', (event) => {
+            event.currentTarget.blur();
+        });
+    });
 
 }
 
@@ -410,7 +414,7 @@ async function getAlertMediaBySubId(subId, getImage, getAudio) {
 
     const resJson = await response.json();
 
-    APImedia = { imageBlob: null, imageFileName: null, audioBlob: null, audioFileName: null };
+    const APImedia = { imageBlob: null, imageFileName: null, audioBlob: null, audioFileName: null };
 
     if(resJson.imageBase64) {
         const binaryString = atob(resJson.imageBase64);

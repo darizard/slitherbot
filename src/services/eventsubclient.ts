@@ -136,7 +136,7 @@ export async function initialize(): Promise<void> {
 	// Find the Set difference of Set<{ requiredSubs.channel_id, requiredSubs.type }> - Set<{ registeredSubs.channel_id, registeredSubs.type }>
 	requiredSubs.forEach(async (requiredSub) => {
 		if(!registeredSubs.values().find((registeredSub) => {
-			return registeredSub.channel_id === requiredSub.channel_id && registeredSub.type === registeredSub.type
+			return registeredSub.channel_id === requiredSub.channel_id && registeredSub.type === requiredSub.type
 		})) {
 
 			// If none of the registered subs matches the current required sub being checked, subscribe to it with Twitch

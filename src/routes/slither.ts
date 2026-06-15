@@ -521,13 +521,6 @@ router.get('/logout', (_req, res) => {
 
 });
 
-router.get('/sqltest', async (_req, res) => {
-
-	console.log('No test query defined at the moment.');
-	res.sendStatus(204);
-
-})
-
 // TODO: For the base route, if Slither can authenticate the user, redirect to home. Otherwise nudge them to authenticate
 // with Twitch
 // GET /slither simply redirects the user to /slither/home
