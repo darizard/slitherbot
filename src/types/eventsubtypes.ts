@@ -114,3 +114,5 @@ export type WebhookCallbackChallengeRequest = {
     }
 
 }
+
+export * as default from './eventsubtypes.js';

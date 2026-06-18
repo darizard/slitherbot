@@ -1,5 +1,7 @@
 {
     "compilerOptions": {
+        "types": ["node"],
+        
         "strict": true,
         "outDir": "./built",
         "rootDir": "./src",

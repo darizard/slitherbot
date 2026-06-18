@@ -38,3 +38,5 @@ export type AlertUpdateData = {
     audio_file_name?: string
 
 }
+
+export * as default from './alerttypes.js';

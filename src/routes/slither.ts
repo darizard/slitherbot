@@ -300,7 +300,7 @@ router.post('/alerts', authenticateSlitherUser, alertMediaUploadMiddleware, asyn
 	const subId = alertPostReqBody.subscriptionId;
 	const updateData: AlertUpdateData = { };
 	const audioVolume = alertPostReqBody.audioVolume ? parseInt(alertPostReqBody.audioVolume) : undefined;
-	const duration = alertPostReqBody.alertDuration ? parseInt(alertPostReqBody.alertDuration) : undefined;
+	const duration = alertPostReqBody.alertDuration ? parseFloat(alertPostReqBody.alertDuration) : undefined;
 	if(audioVolume) updateData.audio_volume = audioVolume;
 	if(duration) updateData.duration = duration;
 	if(alertPostReqBody.alertText) updateData.alert_text = alertPostReqBody.alertText;
@@ -529,8 +529,6 @@ router.get('/', (_req, res) => {
 	return res.redirect(`/slither/home`);
 
 });
-
-// TODO: Implement test functions for eventsub testing and use the /slither/event endpoint to filter out and handle test messages.
 
 // GET /slither/:routeName that is not already handled redirects to /slither/home instead, with a tokenType of null
 router.get('/:badroute', (req, res) => {

@@ -9,7 +9,7 @@ const lastAlertForCategory = new Map([]); // keys are categories, values are sub
 
 const DEFAULT_ALERT_DETAILS = {
     imageFile: '',
-    audioFile: '...',
+    audioFile: '(None)',
     alertText: '',
     alertDuration: 8000,
     audioVolume: 20,
@@ -19,6 +19,8 @@ const DEFAULT_ALERT_DETAILS = {
 document.addEventListener('DOMContentLoaded', initializePage);
 
 async function initializePage() {
+
+    await initEventListeners();
 
     document.querySelector(`#image-file-input`)
         .setAttribute('accept', 'image/apng, image/avif, image/gif, image/jpeg, image/png, image/svg+xml, image/webp');
@@ -35,11 +37,9 @@ async function initializePage() {
 
     lastAlertForCategory.set(defaultCategory, defaultAlertType);
 
-    await addEventListeners();
-
 }
 
-async function addEventListeners() {
+async function initEventListeners() {
 
     document.querySelector('#alert-preview-btn').addEventListener('click', previewAlert);
     document.querySelector('#copy-alerts-url-btn').addEventListener('click', copyAlertsUrlToClipboard);
