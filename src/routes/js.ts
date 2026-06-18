@@ -1,5 +1,6 @@
 import express from 'express'
 import fs from 'fs'
+import { app as appConfig } from '../config.js'
 
 const router = express.Router()
 
@@ -11,7 +12,7 @@ router.get('/:filename', (req, res) => {
     if(!ALLOWED_FILENAMES_STRICT.test(req.params.filename)) return res.sendStatus(400)
 
     // If the file doesn't exist, indicate Bad Request and don't provide any additional information
-    const JS_FILE = `/opt/slitherbot/public/js/${req.params.filename}`
+    const JS_FILE = `/${appConfig.appPath}/public/js/client/${req.params.filename}`
     if(!fs.existsSync(JS_FILE)) return res.sendStatus(400)
     
     return res.status(200).set('Content-Type', 'text/javascript').sendFile(JS_FILE)

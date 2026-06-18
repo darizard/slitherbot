@@ -31,11 +31,10 @@
     "minimatch": "^10.2.2"
   },
   "scripts": {
-    "dev": "nodemon --inspect ./src/server.ts",
-    "build": "npm run tsc",
+    "dev": "concurrently \"nodemon\" \"tsc --project tsconfig.client.json --watch\"",
+    "build": "tsc && tsc --project tsconfig.client.json && npx kysely-codegen && rm -r built/views && cp src/views built -r",
     "start": "export NVM_DIR=\"$HOME/.nvm\"; [ -s \"$NVM_DIR/nvm.sh\" ] && . \"$NVM_DIR/nvm.sh\"; nvm run ./built/server.js",
-    "test": "vitest",
-    "tsc": "tsc; npx kysely-codegen; rm -r built/views; cp src/views built -r"
+    "test": "vitest"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
@@ -51,6 +50,7 @@
     "@types/send": "^1.2.1",
     "@types/supertest": "^7.2.0",
     "@types/ws": "^8.18.1",
+    "concurrently": "^10.0.3",
     "globals": "^17.3.0",
     "kysely-codegen": "^0.20.0",
     "nodemon": "^3.1.14",

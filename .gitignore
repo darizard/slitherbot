@@ -20,14 +20,11 @@ obj/
 *.swp
 
 # Image and sound files -- Implement your own!
-public/images/*
-public/sounds/*
 public/*
 resources/alertmedia/*
 
-# Include JS and CSS!
+# Include CSS!
 !public/css
-!public/js
 
 ### Node.js Template Ignores ###
 

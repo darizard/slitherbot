@@ -8,7 +8,7 @@ declare const alertsMap: Map<alerttypes.EventAlertCategory, alerttypes.EventAler
 
 let selectedCategory = defaultCategory;
 let selectedAlertType = defaultAlertType;
-let alertPreviewTimeout: NodeJS.Timeout | null = null;
+let alertPreviewTimeout: number | null = null;
 
 let alertAudioElement: HTMLAudioElement;
 let alertImagePreviewElement: HTMLImageElement;
@@ -57,6 +57,8 @@ async function initializePage() {
         return alert.subscriptionType === selectedAlertType;
     }));
 
+    document.querySelector(`#${categoryNameToButtonID(defaultCategory)}`)?.classList.add('selected-category');
+    document.querySelector(`#${defaultAlertType}-alert-type-btn`)?.classList.add('selected-alert');
     lastAlertForCategory.set(defaultCategory, defaultAlertType);
 
 }
@@ -176,7 +178,7 @@ function previewAlert(event: Event) {
         if(alertPreviewTimeout) clearTimeout(alertPreviewTimeout);
         alertImagePreviewElement.setAttribute('src', alertImageThumb.src);
         playAlertAudio();
-        alertPreviewTimeout = setTimeout(() => {
+        alertPreviewTimeout = window.setTimeout(() => {
             alertImagePreviewElement.removeAttribute('src');
             stopAlertAudio();
         }, parseFloat(alertDurationInput.value) * 1000);
@@ -259,13 +261,13 @@ async function changeSelectedAlert(type: eventsubtypes.SubscriptionType | undefi
 async function displayAlertDetails(alert: alerttypes.EventAlertDetails | undefined) {
 
     const unsavedAlert = unsavedAlertsMap.get(selectedAlertType);
-    if(!unsavedAlert || !alert) return;
+    if(!alert) return;
 
 
-    const volumeVal = unsavedAlert.audioVolume || alert.audioVolume || DEFAULT_ALERT_DETAILS.audioVolume;
-    const durationVal = unsavedAlert.alertDuration || alert.alertDuration || DEFAULT_ALERT_DETAILS.alertDuration;
-    const textVal = unsavedAlert.alertText || alert.alertText || DEFAULT_ALERT_DETAILS.alertText;
-    const audioFileVal = unsavedAlert.audioFile || alert.audioFile || DEFAULT_ALERT_DETAILS.audioFile;
+    const volumeVal = unsavedAlert?.audioVolume || alert.audioVolume || DEFAULT_ALERT_DETAILS.audioVolume;
+    const durationVal = unsavedAlert?.alertDuration || alert.alertDuration || DEFAULT_ALERT_DETAILS.alertDuration;
+    const textVal = unsavedAlert?.alertText || alert.alertText || DEFAULT_ALERT_DETAILS.alertText;
+    const audioFileVal = unsavedAlert?.audioFile || alert.audioFile || DEFAULT_ALERT_DETAILS.audioFile;
 
     const alertMediaData = alertsMedia.get(alert.subscriptionType) 
                             ?? alertsMedia.set(alert.subscriptionType, { imageUrl: undefined, imageName: undefined, audioUrl: undefined, audioName: undefined })

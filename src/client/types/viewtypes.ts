@@ -20,7 +20,7 @@ export type APIMedia = {
 
 export type EventAlertDetails = BackendAlertDetails & {
 
-    [key: string]: any;
+    [key: string]: string | number;
 
 }
 

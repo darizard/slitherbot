@@ -1,22 +1,19 @@
 {
     "compilerOptions": {
-        "types": ["node"],
-        
         "strict": true,
-        "outDir": "./built",
-        "rootDir": "./src",
-        "allowJs": true,
-        "target": "esnext",
-        "module": "nodenext",
-        "moduleResolution": "nodenext",
+        "outDir": "./public/js",
+        "paths": {
+            "@types/*": ["./src/types/*"]
+        },
+        "target": "es2020",
+        "module": "es2020",
+        "moduleResolution": "bundler",
         "noEmitOnError": true,
         "noImplicitAny": true,
         "skipLibCheck": true,
-        "esModuleInterop": true,
         "noUnusedLocals": true,
         "noUnusedParameters": true,
         "allowUnusedLabels": false,
-        "noUncheckedSideEffectImports": true,
         "noFallthroughCasesInSwitch": true,
         "allowUnreachableCode": false,
 
@@ -29,6 +26,5 @@
         //"noErrorTruncation": true // Set this if type truncation is an issue
 
     },
-    "include": ["./src/**/*"],
-    "exclude": ["./src/client/**/*"]
+    "include": ["./src/client/**/*", "./src/types/*"]
 }
