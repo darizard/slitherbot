@@ -1,5 +1,4 @@
 import { SubscriptionType } from '../../types/eventsubtypes.js'
-import { EventAlertDetails as BackendAlertDetails } from '../../types/alerttypes.js'
 
 export type AlertMediaData = {
     imageUrl?: string | undefined,
@@ -16,12 +15,6 @@ export type APIMedia = {
     audioFileName?: string,
     audioFileMime?: string,
     subType: SubscriptionType
-}
-
-export type EventAlertDetails = BackendAlertDetails & {
-
-    [key: string]: string | number;
-
 }
 
 export * as default from './viewtypes.js';

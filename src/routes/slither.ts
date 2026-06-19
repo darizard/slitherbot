@@ -309,11 +309,26 @@ router.post('/alerts', authenticateSlitherUser, alertMediaUploadMiddleware, asyn
 	if(audioFile) updateData.audio_file = audioFile;
 	if(audioFileName) updateData.audio_file_name = audioFileName;
 
+	// Get pre-update image and audio data filenames from the DB
 	const { image_file, audio_file } = (await eventalertssql.getAlert(subId)) || { audio_file: undefined, image_file: undefined };
 
 	await eventalertssql.updateAlert(subId, updateData);
-	if(image_file) { /*delete old image file*/ }
-	if(audio_file) { /*delete old audio file*/ }
+
+	// If both the new and old file names reference a file, we should delete the old one!
+	if(imageFile && image_file) {
+		try {
+			await fs.promises.unlink(`${appConfig.appPath}/resources/alertmedia/${req.twitchId}/${image_file}`);
+		} catch(err) { 
+			console.error(`Could not delete old image file for subId ${subId}`); 
+		}
+	}
+	if(audioFile && audio_file) {
+		try {
+			await fs.promises.unlink(`${appConfig.appPath}/resources/alertmedia/${req.twitchId}/${audio_file}`);
+		} catch(err) { 
+			console.error(`Could not delete old audio file for subId ${subId}`); 
+		}
+	}
 
 	res.sendStatus(204);
 

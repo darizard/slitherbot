@@ -99,6 +99,22 @@ export async function getFriendlyFileName(filename: string): Promise<string | nu
 
 }
 
+export async function getAllUserMediaData(): Promise<{ active_file: string | null, channel_id: string }[] > {
+
+    const audioFiles = db.selectFrom('EventAlerts')
+        .innerJoin('EventSubs', 'EventSubs.id', 'EventAlerts.sub_id')
+        .select(['EventAlerts.audio_file as active_file', 'EventSubs.channel_id'])
+        .where('EventAlerts.audio_file', 'is not', null);
+
+    const imageFiles = db.selectFrom('EventAlerts')
+        .innerJoin('EventSubs', 'EventSubs.id', 'EventAlerts.sub_id')
+        .select(['EventAlerts.image_file as active_file', 'EventSubs.channel_id'])
+        .where('EventAlerts.image_file', 'is not', null);
+
+    return await audioFiles.union(imageFiles).execute();
+
+}
+
 export async function testQuery(filename: string): Promise<string | null> {
 
     const union = db.selectFrom('EventAlerts')

@@ -27,7 +27,7 @@ let alertAudioFileInput: HTMLInputElement;
 let alertAudioFileButton: HTMLButtonElement;
 let playAudioButton: HTMLButtonElement;
 
-const unsavedAlertsMap: Map<eventsubtypes.SubscriptionType, viewtypes.EventAlertDetails | undefined> = new Map([]); // keys are sub types instead of categories
+const unsavedAlertsMap: Map<eventsubtypes.SubscriptionType, Omit<alerttypes.EventAlertDetails, 'subscriptionId' | 'subscriptionType' | 'category'>> = new Map([]); // keys are sub types instead of categories
 const alertsMedia: Map<eventsubtypes.SubscriptionType, viewtypes.AlertMediaData> = new Map([]); // keys are sub types
 const unsavedAlertsMedia: Map<eventsubtypes.SubscriptionType, viewtypes.AlertMediaData > = new Map([]); // keys are sub types, values are { imageUrl, audioUrl }
 const lastAlertForCategory: Map<alerttypes.EventAlertCategory, eventsubtypes.SubscriptionType> = new Map([]); // keys are categories, values are sub types
@@ -446,19 +446,24 @@ async function discardAlertChanges() {
 
 }
 
-function updateUnsavedAlert(attr: string, val: string | number) {
+function updateUnsavedAlert(attr: keyof alerttypes.EventAlertDetails, val: string | number) {
 
     const alertBtn = document.querySelector('.selected-alert');
     if(!alertBtn) return;
     const type = alertBtn.id.substring(0, alertBtn.id.indexOf('-')) as eventsubtypes.SubscriptionType;
 
-    let unsavedAlert: viewtypes.EventAlertDetails;
     if(!unsavedAlertsMap.has(type)) {
-        unsavedAlert = unsavedAlertsMap.set(type, undefined).get(type) as viewtypes.EventAlertDetails;
+        unsavedAlertsMap.set(type, {
+            imageFile: null, imageFileName: null, audioFile: null, audioFileName: null,
+            alertText: null, alertDuration: null, audioVolume: null, alertDescription: null
+        });
         alertBtn.textContent += ' (UNSAVED)';
-    } else {
-        unsavedAlert = unsavedAlertsMap.get(type) as viewtypes.EventAlertDetails;
     }
+
+    // Explanation: TypeScript can't express the relationship between a dynamic key and its corresponding value type.
+    // i.e., the transpiler doesn't know to take the value of 'attr' and look at its possible assignment types, so I need
+    // to cast the type of ALL of the properties of unsavedAlert to be (string | number | null)
+    const unsavedAlert = unsavedAlertsMap.get(type) as Record<string, string | number | null>;
     unsavedAlert[attr] = val;
 
 }
