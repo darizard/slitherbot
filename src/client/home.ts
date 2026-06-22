@@ -77,15 +77,16 @@ async function initializePage() {
 
     alertImageFileInput.setAttribute('accept', 'image/apng, image/avif, image/gif, image/jpeg, image/png, image/svg+xml, image/webp');
     alertAudioFileInput.setAttribute('accept', 'audio/mpeg, audio/wav, audio/mp4');
+    alertAudioFilenameInput.readOnly = true;
 
-    (document.querySelector(`#${categoryNameToButtonID(selectedCategory)}`) as HTMLButtonElement).click();
+    (document.querySelector(`#${categoryNameToElementID(selectedCategory)}`) as HTMLButtonElement).click();
     
     await displayAlertDetails(alertsMap?.get(selectedCategory)?.find((alert) => {
         return alert.subscriptionType === selectedAlertType;
     }));
 
-    document.querySelector(`#${categoryNameToButtonID(defaultCategory)}`)?.classList.add('selected-category');
-    document.querySelector(`#${defaultAlertType}-alert-type-btn`)?.classList.add('selected-alert');
+    document.querySelector(`#${categoryNameToElementID(defaultCategory)}`)?.classList.add('selected-category');
+    document.querySelector(`#${alertNameToElementID(defaultAlertType)}`)?.classList.add('selected-alert');
     lastAlertForCategory.set(defaultCategory, defaultAlertType);
 
 }
@@ -227,7 +228,7 @@ async function switchAlertCategory(newCategory: alerttypes.EventAlertCategory, e
         const newButton = document.createElement('button');
         const newSubType = alertsForCategory[i]?.subscriptionType;
         if(!newSubType) continue;
-        newButton.setAttribute('id', `${newSubType}-alert-type-btn`);
+        newButton.setAttribute('id', `${alertNameToElementID(newSubType)}`);
         newButton.classList.add('alert-type-btn');
         newButton.addEventListener('click', async (event) => {
             await changeSelectedAlert(newSubType);
@@ -253,7 +254,7 @@ async function switchAlertCategory(newCategory: alerttypes.EventAlertCategory, e
     alertOptionsContainer.replaceChildren(...optionsSections);
     
     if(selectedCategory) {
-        document.querySelector(`#${categoryNameToButtonID(selectedCategory)}`)?.classList.remove('selected-category');
+        document.querySelector(`#${categoryNameToElementID(selectedCategory)}`)?.classList.remove('selected-category');
     }
     newCategoryBtn?.classList.add('selected-category');
     selectedCategory = newCategory;
@@ -271,11 +272,11 @@ async function changeSelectedAlert(type: eventsubtypes.SubscriptionType | undefi
     alertImagePreviewElement.setAttribute('src', '');
     alertAudioElement.setAttribute('src', '');
 
-    const newSelectedBtn = document.querySelector(`#${type}-alert-type-btn`) as HTMLButtonElement;
+    const newSelectedBtn = document.querySelector(`#${alertNameToElementID(type)}`) as HTMLButtonElement;
     newSelectedBtn.classList.add('selected-alert');
     
-    document.querySelector(`#${selectedAlertType}-alert-type-btn`)?.classList.remove('selected-alert');
-    document.querySelector(`#${type}-alert-type-btn`)?.classList.add('selected-alert');
+    document.querySelector(`#${alertNameToElementID(selectedAlertType)}`)?.classList.remove('selected-alert');
+    document.querySelector(`#${alertNameToElementID(type)}`)?.classList.add('selected-alert');
     
     selectedAlertType = type;
     lastAlertForCategory.set(selectedCategory, selectedAlertType);
@@ -400,8 +401,8 @@ function setAudioFile() {
 
 async function uploadAlert() {
 
-    const unsavedAlert = unsavedAlertsMap.get(selectedAlertType) ?? undefined;
-    if(unsavedAlert === undefined) return;
+    const unsavedAlert = unsavedAlertsMap.get(selectedAlertType);
+    if(!unsavedAlert) return;
 
     const mappedAlert = alertsMap.get(selectedCategory)?.find((alert) => {
         return alert.subscriptionType === selectedAlertType;
@@ -437,14 +438,18 @@ async function uploadAlert() {
         if(unsavedAlert.audioVolume) mappedAlert.audioVolume = unsavedAlert.audioVolume;
         if(unsavedAlert.alertDuration) mappedAlert.alertDuration = unsavedAlert.alertDuration;
         if(unsavedAlert.alertText) mappedAlert.alertText = unsavedAlert.alertText;
-        (document.querySelector(`#${selectedAlertType}-alert-type-btn`) as HTMLButtonElement).textContent = mappedAlert.alertDescription;
+        (document.querySelector(`#${alertNameToElementID(selectedAlertType)}`) as HTMLButtonElement).textContent = mappedAlert.alertDescription;
         unsavedAlertsMap.delete(selectedAlertType);
+        unsavedAlertsMedia.delete(selectedAlertType);
 
     }
 
 }
 
 async function discardAlertChanges() {
+
+    const unsavedAlert = unsavedAlertsMap.get(selectedAlertType);
+    if(!unsavedAlert) return;
 
     alertAudioElement.removeAttribute('src');
     alertImageThumb.removeAttribute('src');
@@ -462,7 +467,7 @@ async function discardAlertChanges() {
     const alertToRestore = alertsMap.get(selectedCategory)?.find((alert) => {
         return alert.subscriptionType === selectedAlertType;
     });
-    const alertBtn = document.querySelector(`#${selectedAlertType}-alert-type-btn`);
+    const alertBtn = document.querySelector(`#${alertNameToElementID(selectedAlertType)}`);
     if(!alertBtn || !alertToRestore) {
         console.error('Expected alert type not found in underlying data (Oops I broke something)');
         return;
@@ -541,8 +546,14 @@ async function getAlertMediaBySubId(subId: string, getImage: boolean, getAudio: 
 
 }
 
-function categoryNameToButtonID(catName: string): string {
+function categoryNameToElementID(catName: string): string {
 
     return `${catName.toLowerCase().replace(' ', '')}-alerts-category-btn`
+
+}
+
+function alertNameToElementID(alertName: string): string {
+
+    return `${alertName}-alert-type-btn`;
 
 }
