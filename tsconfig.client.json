@@ -5,9 +5,9 @@
         "paths": {
             "@types/*": ["./src/types/*"]
         },
-        "target": "es2020",
+        "target": "es2020", // target older version for compatibility
         "module": "es2020",
-        "moduleResolution": "bundler",
+        "moduleResolution": "bundler", // tell TypeScript to trust import statements in client side ts files, particularly for types
         "noEmitOnError": true,
         "noImplicitAny": true,
         "skipLibCheck": true,

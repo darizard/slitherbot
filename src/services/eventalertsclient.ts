@@ -7,7 +7,7 @@ export async function initialize(): Promise<void> {
 
     await eventalertssql.initEventAlerts();
     void initAlertsPathsFS();
-    await removeUnusedMedia();
+    await removeUnusedAlertMedia();
 
 }
 
@@ -26,7 +26,7 @@ async function initAlertsPathsFS(): Promise<void> {
 
 }
 
-async function removeUnusedMedia(): Promise<void> {
+async function removeUnusedAlertMedia(): Promise<void> {
 
     // https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/reduce
     const dbMedia = (await eventalertssql.getAllUserMediaData()).reduce((map, item) => {

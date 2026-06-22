@@ -554,4 +554,3 @@ router.get('/:badroute', (req, res) => {
 });
 
 export default { router };
-export { router };

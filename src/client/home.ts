@@ -1,37 +1,64 @@
-import alerttypes from "../types/alerttypes.js";
-import eventsubtypes from "../types/eventsubtypes.js";
-import viewtypes from "./types/viewtypes.js";
+import type alerttypes from "../types/alerttypes.js";
+import type eventsubtypes from "../types/eventsubtypes.js";
+import type viewtypes from "./types/viewtypes.js";
 
+// TELL TYPESCRIPT THAT THESE WILL BE IMPORTED FROM THE EJS TEMPLATE
 declare const defaultCategory: alerttypes.EventAlertCategory;
 declare const defaultAlertType: eventsubtypes.SubscriptionType;
 declare const alertsMap: Map<alerttypes.EventAlertCategory, alerttypes.EventAlertDetails[]>;
 
-let selectedCategory = defaultCategory;
-let selectedAlertType = defaultAlertType;
-let alertPreviewTimeout: number | null = null;
-
+/* DEFINE TYPES FOR PAGE ELEMENTS */
+/**<audio> for the currently selected alert */
 let alertAudioElement: HTMLAudioElement;
+/**<img> in the Alert Preview box, only visible during preview */
 let alertImagePreviewElement: HTMLImageElement;
+/**<img> in the Set Image box, always visible */
 let alertImageThumb: HTMLImageElement;
+/**<input> to define how long the alert should play */
 let alertDurationInput: HTMLInputElement;
+/**Container <div> displaying all data for the currently selected alert category */
 let alertOptionsContainer: HTMLDivElement;
+/**Container <div> for the buttons to select specific alert types */
 let alertTypeButtonsContainer: HTMLDivElement;
+/**Container <div> for the alert preview, image/audio buttons and displays, and duration input */
 let alertSettingsSection1: HTMLDivElement;
+/**Container <div> for the alert text and save/discard alert changes buttons */
 let alertSettingsSection2: HTMLDivElement;
+/**Read-only <input> element displaying the file name for the current alert's audio */
 let alertAudioFilenameInput: HTMLInputElement;
+/**Range type <input> to control the alert volume */
 let alertAudioVolumeInput: HTMLInputElement;
+/**<input> for the text to display when playing the alert */
 let alertTextInput: HTMLInputElement;
+/**Invisible <input> element triggered by Set Image button<input>  */
 let alertImageFileInput: HTMLInputElement;
+/**<button> which triggers the alert image input element */
 let alertImageFileButton: HTMLButtonElement;
+/**Invisible <input> element triggered by Set Audio button */
 let alertAudioFileInput: HTMLInputElement;
+/**<button> which triggers the alert audio input element */
 let alertAudioFileButton: HTMLButtonElement;
+/**<button> which plays the current audio src in the audio input element */
 let playAudioButton: HTMLButtonElement;
 
+/* DATA STRUCTURES USED IN FRONTEND LOGIC */
+/**Store the details of the alert for each subscription type which has been changed but not saved by the user */
 const unsavedAlertsMap: Map<eventsubtypes.SubscriptionType, Omit<alerttypes.EventAlertDetails, 'subscriptionId' | 'subscriptionType' | 'category'>> = new Map([]); // keys are sub types instead of categories
+/**Store the file names and URLs of the media for every subscription type that the user has interacted with since page load */
 const alertsMedia: Map<eventsubtypes.SubscriptionType, viewtypes.AlertMediaData> = new Map([]); // keys are sub types
+/**Store the file names and URLs of the media for every subscription type that the user has updated on the page but not saved to the server */
 const unsavedAlertsMedia: Map<eventsubtypes.SubscriptionType, viewtypes.AlertMediaData > = new Map([]); // keys are sub types, values are { imageUrl, audioUrl }
+/**Map the last alert that the user had selected for each category */
 const lastAlertForCategory: Map<alerttypes.EventAlertCategory, eventsubtypes.SubscriptionType> = new Map([]); // keys are categories, values are sub types
 
+/**The currently selected alert category */
+let selectedCategory = defaultCategory;
+/**The currently selected alert type */
+let selectedAlertType = defaultAlertType;
+/**Save the timeout for the alert preview so that it can be cleared manually if the user takes certain actions while an alert preview is playing */
+let alertPreviewTimeout: number | null = null;
+
+/**Data to use if the user has not uploaded or input anything for an alert type */
 const DEFAULT_ALERT_DETAILS = {
     imageFile: '',
     audioFile: '(None)',
@@ -375,7 +402,7 @@ async function uploadAlert() {
 
     const unsavedAlert = unsavedAlertsMap.get(selectedAlertType) ?? undefined;
     if(unsavedAlert === undefined) return;
-    
+
     const mappedAlert = alertsMap.get(selectedCategory)?.find((alert) => {
         return alert.subscriptionType === selectedAlertType;
     });
@@ -418,7 +445,7 @@ async function uploadAlert() {
 }
 
 async function discardAlertChanges() {
-    
+
     alertAudioElement.removeAttribute('src');
     alertImageThumb.removeAttribute('src');
     alertImagePreviewElement.removeAttribute('src');
@@ -435,7 +462,7 @@ async function discardAlertChanges() {
     const alertToRestore = alertsMap.get(selectedCategory)?.find((alert) => {
         return alert.subscriptionType === selectedAlertType;
     });
-    const alertBtn = document.querySelector(`#${selectedAlertType}-alert-type-btn`)
+    const alertBtn = document.querySelector(`#${selectedAlertType}-alert-type-btn`);
     if(!alertBtn || !alertToRestore) {
         console.error('Expected alert type not found in underlying data (Oops I broke something)');
         return;
