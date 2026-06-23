@@ -15,9 +15,7 @@
 // internal app imports
 import { getValidatedSlitherAppToken } from './twitchauth.js';
 import { twitch as twitchConfig } from '../config.js';
-import type { CreateSubscriptionRequestBody, TwitchEventNotification, 
-				WebhookCallbackChallengeRequest, SubscriptionType, 
-				SlitherEventSubscription } from '../types/eventsubtypes.js';
+import eventsubtypes from '../types/eventsubtypes.js';
 
 // DB imports
 import eventsubsql from '../db/queries/eventsub.js';
@@ -55,7 +53,7 @@ export async function initialize(): Promise<void> {
 	const dbSubsMap = await eventsubsql.getAllSubscriptions()
 		.then((allSubs) => {
 
-			const dbSubMap = new Map<{ channel_id: string, type: SubscriptionType }, string | null>();
+			const dbSubMap = new Map<{ channel_id: string, type: eventsubtypes.SubscriptionType }, string | null>();
 			allSubs.forEach((dbUserSub) => { 
 				dbSubMap.set({ channel_id: dbUserSub.channel_id, type: dbUserSub.type }, dbUserSub.id); 
 			});
@@ -82,7 +80,7 @@ export async function initialize(): Promise<void> {
 	
 	// 1. Loop through all of the twitch subs and assign the subscription ID to each {user, subType} value via a map.
 	// App-level sub types will map the subscription ID to the type only
-	const dbSubsToUpsert = new Set<SlitherEventSubscription>();
+	const dbSubsToUpsert = new Set<eventsubtypes.SlitherEventSubscription>();
 
 	twitchSubs.forEach((twitchSub) => {
 		let channelId = '';
@@ -130,8 +128,8 @@ export async function initialize(): Promise<void> {
 	// For any required subs for active users that are still missing from the database, subscribe to the event.
 	// The database update will be handled by the /slither/event endpoint after a Twitch webhook callback 
 	// verification request.
-	const requiredSubs: Set<SlitherEventSubscription> = SlitherEventSub.getAllRequiredSubscriptions(activeUserIds);
-	const registeredSubs: Set<SlitherEventSubscription> = await eventsubsql.getSubscriptionsForUsers(activeUserIds.concat(['.']));
+	const requiredSubs: Set<eventsubtypes.SlitherEventSubscription> = SlitherEventSub.getAllRequiredSubscriptions(activeUserIds);
+	const registeredSubs: Set<eventsubtypes.SlitherEventSubscription> = await eventsubsql.getSubscriptionsForUsers(activeUserIds.concat(['.']));
 	
 	// Find the Set difference of Set<{ requiredSubs.channel_id, requiredSubs.type }> - Set<{ registeredSubs.channel_id, registeredSubs.type }>
 	requiredSubs.forEach(async (requiredSub) => {
@@ -147,7 +145,7 @@ export async function initialize(): Promise<void> {
 
 }
 
-export async function registerNewEventSubscription(challengeReq: WebhookCallbackChallengeRequest): Promise<void> {
+export async function registerNewEventSubscription(challengeReq: eventsubtypes.WebhookCallbackChallengeRequest): Promise<void> {
 	
 	if(SlitherEventSub.isAppSubType(challengeReq.subscription.type)) {
 		const dbSub = {
@@ -183,20 +181,20 @@ export async function registerNewEventSubscription(challengeReq: WebhookCallback
 	}
 }
 
-export async function deregisterEventSubscription(subscription: TwitchEventNotification): Promise<void> {
+export async function deregisterEventSubscription(subscription: eventsubtypes.TwitchEventNotification): Promise<void> {
 
 		await eventsubsql.deleteEventSub(subscription.id);
 
 }
 
-export async function handleDisabledSubscription(subscription: TwitchEventNotification): Promise<void> {
+export async function handleDisabledSubscription(subscription: eventsubtypes.TwitchEventNotification): Promise<void> {
 
 	await unsubscribeFromEvent(subscription);
 	await deregisterEventSubscription(subscription);
 
 }
 
-async function fetchAllTwitchSubscriptions(): Promise<Set<TwitchEventNotification> | undefined> {
+async function fetchAllTwitchSubscriptions(): Promise<Set<eventsubtypes.TwitchEventNotification> | undefined> {
 
 	const appToken = await getValidatedSlitherAppToken();
 
@@ -210,7 +208,7 @@ async function fetchAllTwitchSubscriptions(): Promise<Set<TwitchEventNotificatio
 	.then(async (res) => {
 
 		const resWasOk = res.ok;
-		const resData = (await res.json()).data as TwitchEventNotification[];
+		const resData = (await res.json()).data as eventsubtypes.TwitchEventNotification[];
 		if(resWasOk) return new Set(resData);
 		return undefined;
 
@@ -220,7 +218,7 @@ async function fetchAllTwitchSubscriptions(): Promise<Set<TwitchEventNotificatio
 }
 
 // Subscribe to User event if channelId is provided, otherwise subscribe to App event.
-export async function subscribeToEvent(eventType: SubscriptionType, channelId: string): Promise<string | undefined> {
+export async function subscribeToEvent(eventType: eventsubtypes.SubscriptionType, channelId: string): Promise<string | undefined> {
 
 	const appToken = await getValidatedSlitherAppToken();
 	const reqHeaders = { 			
@@ -229,7 +227,7 @@ export async function subscribeToEvent(eventType: SubscriptionType, channelId: s
 			'Content-Type': 'application/json'
 	};
 
-	let reqBody: CreateSubscriptionRequestBody;
+	let reqBody: eventsubtypes.CreateSubscriptionRequestBody;
 	if(!SlitherEventSub.isAppSubType(eventType) &&
 	   !SlitherEventSub.isUserSubType(eventType)) {
 
@@ -268,7 +266,7 @@ export async function subscribeToEvent(eventType: SubscriptionType, channelId: s
 
 }
 
-async function unsubscribeFromEvent(subscription: TwitchEventNotification): Promise<boolean> {
+async function unsubscribeFromEvent(subscription: eventsubtypes.TwitchEventNotification): Promise<boolean> {
 
 	const appToken = await getValidatedSlitherAppToken();
 
