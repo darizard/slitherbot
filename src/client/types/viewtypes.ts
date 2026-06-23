@@ -1,11 +1,13 @@
-import { SubscriptionType } from '../../types/eventsubtypes.js'
+import eventsubtypes from '../../types/eventsubtypes.js';
+import alerttypes from '../../types/alerttypes.js';
 
-export type AlertMediaData = {
+export type SubscriptionType = eventsubtypes.SubscriptionType;
+export type EventAlertCategory = alerttypes.EventAlertCategory;
+export type EventAlertDetails = Omit<alerttypes.EventAlertDetails, 'subscriptionType' | 'category' | 'imageFile' | 'audioFile'> 
+& {
     imageUrl?: string | undefined,
-    audioUrl?: string | undefined,
-    imageName?: string | undefined,
-    audioName?: string | undefined
-}
+    audioUrl?: string | undefined
+};
 
 export type APIMedia = {
     imageBlob?: Blob, 

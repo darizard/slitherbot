@@ -52,6 +52,7 @@ export async function getUserAlerts(twitchId: string | undefined): Promise<Event
                              'alert_text as alertText', 'duration as alertDuration',
                              'audio_volume as audioVolume'])
                     .where('channel_id', '=', twitchId)
+                    .orderBy('subscriptionType', 'asc')
                     .execute() as EventAlertDetails[];
 
     for(const alert of result) {

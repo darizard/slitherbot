@@ -10,7 +10,23 @@
   <link rel="stylesheet" href="/slither/css/base-style.css" />
   <link rel="stylesheet" href="/slither/css/home.css" />
   <script>
-    const alertsMap = new Map(<%- JSON.stringify([...data.alerts.entries()].map(([key, value]) => [key, value])) %>)
+    const alertsMap = new Map(
+      // The code inside of the EJS escape tags stringifies the entire Map structure down to the innermost level 
+      // with a .map call for each nested level. Adding a level means adding another .map call on the last spread
+      // .entries() object in the EJS map-to-array conversion and the object being passed to the inner most Map
+      // constructor in the JS going to the browser.
+      <%- JSON.stringify(
+        [...data.alerts.entries()].map(([category, typeMap]) => [
+          category, 
+          [...typeMap.entries()]
+        ])
+      ) %>
+      // The .map() methods outside of the EJS code reconstruct each level into the Map object that the client
+      // JS will use. One .map() call per level both inside and outside of the EJS tags.
+      .map(([category, typeMap]) => [
+        category, new Map(typeMap)
+      ])
+    )
     const defaultCategory = '<%- data.defaultCategory %>'
     const defaultAlertType = '<%- data.defaultAlertType %>'
     const alertsUrl = '<%- data.alertsUrl %>'
@@ -34,9 +50,9 @@
       </div>
       <div id="alert-options-container">
         <div id="alert-type-buttons-container">
-<% data.alerts.get(data.defaultCategory).forEach((alert) => { %>
-          <button id="<%= alert.subscriptionType %>-alert-type-btn" class="alert-type-btn" tabindex="0">
-            <h2 class="alert-description"><%= alert.alertDescription %></h2>
+<% data.alerts.get(data.defaultCategory).entries().forEach((entry) => { %>
+          <button id="<%= entry[0] %>-alert-type-btn" class="alert-type-btn" tabindex="0">
+            <h2 class="alert-description"><%= entry[1].alertDescription %></h2>
           </button>
 <% }) %>
         </div>

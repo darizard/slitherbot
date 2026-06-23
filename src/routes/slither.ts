@@ -16,7 +16,7 @@ import type { SlitherAuthenticatedRequest, TwitchAuthCodeRequest } from '../type
 import { isTwitchAuthError, isTwitchAuthCode } from '../types/authtypes.js';
 import type { AlertMessage } from '../types/slitherwstypes.js';
 import { TwitchEventNotification, WebhookCallbackChallengeRequest, SubscriptionType } from '../types/eventsubtypes.js';
-import { AlertUpdateData, AlertPostReqBody, EventAlertCategory } from '../types/alerttypes.js';
+import { AlertUpdateData, AlertPostReqBody, EventAlertCategory, EventAlertDetails } from '../types/alerttypes.js';
 
 // Express Middleware
 import { verifyTwitchEventMessage } from '../middleware/twitchauth.js';
@@ -478,21 +478,35 @@ router.get('/home', authenticateSlitherUser, async (req: SlitherAuthenticatedReq
 
 	const alertsArr = await eventalertssql.getUserAlerts(req.twitchId);
 
-	const alertsByCategoryMap = (() => {
-		const rtnMap = new Map();
+	// Build the data to send to the browser upon page load. This will be a nested Map. 
+	// First level: <EventAlertCategory, Map>
+	// Second level: <SubscriptionType, EventAlertDetails>
+	const alertsMap = (() => {
+		// Instantiate the first level of the map
+		const rtnMap: Map<EventAlertCategory, Map<string, Omit<EventAlertDetails, 'imageFile' | 'audioFile' | 'category' | 'subscriptionType'>>> = new Map();
+		// Iterate through all of the current user's alerts and assign each a place in the data structure
 		alertsArr.forEach((alert) => {
-			if(!rtnMap.has(alert.category)) { rtnMap.set(alert.category, []); }
-			rtnMap.get(alert.category)?.push({
+			// Establish the category if necessary
+			if(!rtnMap.has(alert.category)) { rtnMap.set(alert.category, new Map()); }
+			
+			// Get the Subscription Type and establish its details in the second level map under the current category
+			// This regex removes all '.' and ':' characters from subscriptionType before passing to the frontend
+			const alertTypePretty = alert.subscriptionType.replace(/[\.:]/g, '').toLowerCase();
+			const alertsForCategory = rtnMap.get(alert.category);
+			if(!alertsForCategory?.has(alertTypePretty)) { alertsForCategory?.set(alertTypePretty, {
+
+				// Set up the alert details from the database inside the second level map
 				subscriptionId: alert.subscriptionId,
-				subscriptionType: alert.subscriptionType.replace(/[\.:]/g, '').toLowerCase(),
-				imageFile: alert.imageFileName,
-				audioFile: alert.audioFileName,
+				imageFileName: alert.imageFileName,
+				audioFileName: alert.audioFileName,
 				alertText: alert.alertText,
 				alertDuration: alert.alertDuration,
 				audioVolume: alert.audioVolume,
 				alertDescription: alert.alertDescription
-			});
-		})
+
+				});
+			}
+		});
 		return rtnMap;
 	})();
 
@@ -503,7 +517,7 @@ router.get('/home', authenticateSlitherUser, async (req: SlitherAuthenticatedReq
 		data: {
 			alertsUrl: alertsUrl,
 			navItems: JSON.stringify(navItems),
-			alerts: alertsByCategoryMap,
+			alerts: alertsMap,
 			defaultCategory: defaultCategory,
 			defaultAlertType: defaultAlertType.replace(/[.:]/, '').toLowerCase()
 		}

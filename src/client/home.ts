@@ -1,11 +1,9 @@
-import type alerttypes from "../types/alerttypes.js";
-import type eventsubtypes from "../types/eventsubtypes.js";
 import type viewtypes from "./types/viewtypes.js";
 
-// TELL TYPESCRIPT THAT THESE WILL BE IMPORTED FROM THE EJS TEMPLATE
-declare const defaultCategory: alerttypes.EventAlertCategory;
-declare const defaultAlertType: eventsubtypes.SubscriptionType;
-declare const alertsMap: Map<alerttypes.EventAlertCategory, alerttypes.EventAlertDetails[]>;
+/* TELL TYPESCRIPT THAT THESE WILL BE IMPORTED FROM THE EJS TEMPLATE */
+declare const defaultCategory: viewtypes.EventAlertCategory;
+declare const defaultAlertType: viewtypes.SubscriptionType;
+declare const alertsMap: Map<viewtypes.EventAlertCategory, Map<viewtypes.SubscriptionType, viewtypes.EventAlertDetails>>;
 
 /* DEFINE TYPES FOR PAGE ELEMENTS */
 /**<audio> for the currently selected alert */
@@ -25,7 +23,7 @@ let alertSettingsSection1: HTMLDivElement;
 /**Container <div> for the alert text and save/discard alert changes buttons */
 let alertSettingsSection2: HTMLDivElement;
 /**Read-only <input> element displaying the file name for the current alert's audio */
-let alertAudioFilenameInput: HTMLInputElement;
+let alertAudioFileNameInput: HTMLInputElement;
 /**Range type <input> to control the alert volume */
 let alertAudioVolumeInput: HTMLInputElement;
 /**<input> for the text to display when playing the alert */
@@ -40,16 +38,14 @@ let alertAudioFileInput: HTMLInputElement;
 let alertAudioFileButton: HTMLButtonElement;
 /**<button> which plays the current audio src in the audio input element */
 let playAudioButton: HTMLButtonElement;
+/**<input> containing the Alerts URL specific to the user */
+let alertsUrlInput: HTMLInputElement;
 
 /* DATA STRUCTURES USED IN FRONTEND LOGIC */
 /**Store the details of the alert for each subscription type which has been changed but not saved by the user */
-const unsavedAlertsMap: Map<eventsubtypes.SubscriptionType, Omit<alerttypes.EventAlertDetails, 'subscriptionId' | 'subscriptionType' | 'category'>> = new Map([]); // keys are sub types instead of categories
-/**Store the file names and URLs of the media for every subscription type that the user has interacted with since page load */
-const alertsMedia: Map<eventsubtypes.SubscriptionType, viewtypes.AlertMediaData> = new Map([]); // keys are sub types
-/**Store the file names and URLs of the media for every subscription type that the user has updated on the page but not saved to the server */
-const unsavedAlertsMedia: Map<eventsubtypes.SubscriptionType, viewtypes.AlertMediaData > = new Map([]); // keys are sub types, values are { imageUrl, audioUrl }
+const unsavedAlertsMap: Map<viewtypes.EventAlertCategory, Map<viewtypes.SubscriptionType, viewtypes.EventAlertDetails>> = new Map([]); // keys are sub types instead of categories
 /**Map the last alert that the user had selected for each category */
-const lastAlertForCategory: Map<alerttypes.EventAlertCategory, eventsubtypes.SubscriptionType> = new Map([]); // keys are categories, values are sub types
+const lastAlertTypeForCategory: Map<viewtypes.EventAlertCategory, viewtypes.SubscriptionType> = new Map([]); // keys are categories, values are sub types
 
 /**The currently selected alert category */
 let selectedCategory = defaultCategory;
@@ -60,66 +56,62 @@ let alertPreviewTimeout: number | null = null;
 
 /**Data to use if the user has not uploaded or input anything for an alert type */
 const DEFAULT_ALERT_DETAILS = {
-    imageFile: '',
-    audioFile: '(None)',
+    imageFileName: '',
+    audioFileName: '(None)',
     alertText: '',
     alertDuration: 8000,
     audioVolume: 20,
     alertDescription: ''
 };
 
+/*******************************************PAGE SETUP*******************************************/
+
 document.addEventListener('DOMContentLoaded', initializePage);
 
-async function initializePage() {
+/** Page Setup */
+async function initializePage(): Promise<void> {
 
-    await initEventListeners();
     initElementReferences();
+    await initEventListeners();
 
     alertImageFileInput.setAttribute('accept', 'image/apng, image/avif, image/gif, image/jpeg, image/png, image/svg+xml, image/webp');
     alertAudioFileInput.setAttribute('accept', 'audio/mpeg, audio/wav, audio/mp4');
-    alertAudioFilenameInput.readOnly = true;
+    alertAudioFileNameInput.readOnly = true;
 
-    (document.querySelector(`#${categoryNameToElementID(selectedCategory)}`) as HTMLButtonElement).click();
+    document.querySelector(`#${categoryNameToButtonID(defaultCategory)}`)?.classList.add('selected-category');    
+    document.querySelector(`#${alertNameToButtonID(defaultAlertType)}`)?.classList.add('selected-alert');
     
-    await displayAlertDetails(alertsMap?.get(selectedCategory)?.find((alert) => {
-        return alert.subscriptionType === selectedAlertType;
-    }));
+    await displayAlertDetails(defaultCategory, defaultAlertType);
 
-    document.querySelector(`#${categoryNameToElementID(defaultCategory)}`)?.classList.add('selected-category');
-    document.querySelector(`#${alertNameToElementID(defaultAlertType)}`)?.classList.add('selected-alert');
-    lastAlertForCategory.set(defaultCategory, defaultAlertType);
+    lastAlertTypeForCategory.set(defaultCategory, defaultAlertType);
 
 }
 
-async function initEventListeners() {
+/** Set up event listeners for known elements at the time of page load */
+async function initEventListeners(): Promise<void> {
+
+    alertImageFileInput?.addEventListener('change', setAlertImageFile);
+    alertImageFileButton?.addEventListener('click', imageFileInputBtnClicked);
+    alertAudioFileInput?.addEventListener('change', setAlertAudioFile);
+    alertAudioFileButton?.addEventListener('click', audioFileInputBtnClicked);
+    alertAudioVolumeInput?.addEventListener('input', setAlertAudioVolume);
+    alertDurationInput?.addEventListener('input', setAlertDuration);
+    alertTextInput?.addEventListener('input', setAlertText);
+    playAudioButton?.addEventListener('click', playAudioBtnClicked);
 
     document.querySelector('#alert-preview-btn')?.addEventListener('click', previewAlert);
     document.querySelector('#copy-alerts-url-btn')?.addEventListener('click', copyAlertsUrlToClipboard);
-    document.querySelector('#image-file-input')?.addEventListener('change', setAlertImage);
-    document.querySelector('#image-file-input-btn')?.addEventListener('click', imageFileInputBtnClicked);
-    document.querySelector('#audio-file-input')?.addEventListener('change', setAudioFile);
-    document.querySelector('#audio-file-input-btn')?.addEventListener('click', audioFileInputBtnClicked);
-    document.querySelector('#audio-volume-input')?.addEventListener('input', setAudioVolume);
-    document.querySelector('#alert-duration-input')?.addEventListener('input', setAlertDuration);
-    document.querySelector('#alert-text-input')?.addEventListener('input', setAlertText);
-    document.querySelector('#play-audio-btn')?.addEventListener('click', playAudioBtnClicked);
     document.querySelector('#save-alert-btn')?.addEventListener('click', uploadAlert);
     document.querySelector('#discard-changes-btn')?.addEventListener('click', discardAlertChanges);
     document.querySelectorAll('.alerts-category-btn').forEach((btn) => {
-        btn.addEventListener('click', async (event) => {
-            await switchAlertCategory(btn.textContent as alerttypes.EventAlertCategory, event);
+        btn.addEventListener('click', async () => {
+            await switchAlertCategory(btn.textContent as viewtypes.EventAlertCategory);
         });
     });
-
-    document.querySelectorAll('button').forEach((btn) => {
-        btn.addEventListener('click', (event) => {
-            if(event.currentTarget) (event.currentTarget as HTMLButtonElement).blur();
-        });
-    });
-
 }
 
-function initElementReferences() {
+/** Make it easier to refer to page elements elsewhere */
+function initElementReferences(): void {
 
     alertAudioElement = document.querySelector('#alert-audio') as HTMLAudioElement;
     alertImagePreviewElement = document.querySelector('#alert-img') as HTMLImageElement;
@@ -129,7 +121,7 @@ function initElementReferences() {
     alertTypeButtonsContainer = document.querySelector('#alert-type-buttons-container') as HTMLDivElement;
     alertSettingsSection1 = document.querySelector('#alert-settings-section-1') as HTMLDivElement;
     alertSettingsSection2 = document.querySelector('#alert-settings-section-2') as HTMLDivElement;
-    alertAudioFilenameInput = document.querySelector('#alert-audio-filename') as HTMLInputElement;
+    alertAudioFileNameInput = document.querySelector('#alert-audio-filename') as HTMLInputElement;
     alertAudioVolumeInput = document.querySelector('#audio-volume-input') as HTMLInputElement;
     alertTextInput = document.querySelector('#alert-text-input') as HTMLInputElement;
     alertImageFileInput = document.querySelector('#image-file-input') as HTMLInputElement;
@@ -137,289 +129,148 @@ function initElementReferences() {
     alertAudioFileInput = document.querySelector('#audio-file-input') as HTMLInputElement;
     alertAudioFileButton = document.querySelector('#audio-file-input-btn') as HTMLButtonElement;
     playAudioButton = document.querySelector('#play-audio-btn') as HTMLButtonElement;
-
-}
-
-async function copyAlertsUrlToClipboard() {
-
-    const urlField = document.querySelector('#alerts-url-field');
-    if(urlField) {
-        const textToCopy = (urlField as HTMLInputElement).value;
-        await copyTextToClipboard(textToCopy);
-    }
-
-    const alertsUrlCopyBtn = document.querySelector('#copy-alerts-url-btn') as (HTMLButtonElement | null);
-    if(alertsUrlCopyBtn) alertsUrlCopyBtn.blur();
-
-}
-
-function setAudioVolume(event: Event) {
-
-    const eventTarget = event.currentTarget as HTMLInputElement | null;
-    if(eventTarget) {
-        alertAudioElement.volume = eventTarget.valueAsNumber;
-        updateUnsavedAlert('audioVolume', eventTarget.valueAsNumber * 100);
-    }
     
+    alertsUrlInput = document.querySelector('#alerts-url-field') as HTMLInputElement;
 }
 
-function setAlertDuration(event: Event) {
-    
-    if(event.currentTarget) updateUnsavedAlert('alertDuration', parseFloat((event.currentTarget as HTMLInputElement).value) * 1000);
+/** Update of all elements in the #alert-options-container div and update styling to reflect selected elements */
+async function switchAlertCategory(newCategory: viewtypes.EventAlertCategory): Promise<void> {
 
-}
-
-function setAlertText(event: Event) {
-
-    if(event.currentTarget) updateUnsavedAlert('alertText', (event.currentTarget as HTMLInputElement).value);
-
-}
-
-function playAlertAudio() {
-
-    alertAudioElement.currentTime = 0;
-    alertAudioElement.play().catch((_err: Error) => { });
-
-}
-
-function stopAlertAudio() {
-
-    alertAudioElement.pause();
-    alertAudioElement.currentTime = 0;
-
-}
-
-async function copyTextToClipboard(text: string) {
-
-    try {
-        await navigator.clipboard.writeText(text);
-    } catch(err) {
-        console.error(`Error copying to clipboard: ${err}`);
-    }
-
-}
-
-function previewAlert(event: Event) {
-
-    if(event.currentTarget) {
-        (event.currentTarget as HTMLButtonElement | null)?.blur();
-        if(alertPreviewTimeout) clearTimeout(alertPreviewTimeout);
-        alertImagePreviewElement.setAttribute('src', alertImageThumb.src);
-        playAlertAudio();
-        alertPreviewTimeout = window.setTimeout(() => {
-            alertImagePreviewElement.removeAttribute('src');
-            stopAlertAudio();
-        }, parseFloat(alertDurationInput.value) * 1000);
-
-    }
-
-
-}
-
-async function switchAlertCategory(newCategory: alerttypes.EventAlertCategory, event: Event) {
-
+    // Make sure we actually have a new category and data for it
     if(newCategory === selectedCategory) return;
     const alertsForCategory = alertsMap.get(newCategory);
     if(!alertsForCategory) return;
-    const newCategoryBtn = event.currentTarget ? event.currentTarget as HTMLButtonElement : undefined;
 
+    // Create the buttons for the different alert types in the category and place them into their container
     const alertTypeButtons: HTMLButtonElement[] = [];
-    for(let i = 0; i < alertsForCategory.length; i++) {
+    for(const [newSubType, alertDetails] of alertsForCategory) {
         const newButton = document.createElement('button');
-        const newSubType = alertsForCategory[i]?.subscriptionType;
-        if(!newSubType) continue;
-        newButton.setAttribute('id', `${alertNameToElementID(newSubType)}`);
+        newButton.setAttribute('id', `${alertNameToButtonID(newSubType)}`);
         newButton.classList.add('alert-type-btn');
-        newButton.addEventListener('click', async (event) => {
+        newButton.addEventListener('click', async () => {
             await changeSelectedAlert(newSubType);
-            (event.target as HTMLButtonElement | null)?.blur();
         });
         newButton.tabIndex = 0;
 
-        newButton.textContent = alertsForCategory[i]?.alertDescription ?? '';
-        if(unsavedAlertsMap.has(newSubType)) newButton.textContent += ' (UNSAVED)';
+        newButton.textContent = alertDetails.alertDescription ?? '';
+        if(unsavedAlertsMap.get(newCategory)?.get(newSubType)) newButton.textContent += ' (UNSAVED)';
 
         alertTypeButtons.push(newButton);
 
     }
-
     alertTypeButtonsContainer.replaceChildren(...alertTypeButtons);
 
+    // Put the settings containers in the correct order and then place them into their parent container
     const optionsSections = []
     optionsSections.push(alertTypeButtonsContainer);
-
     optionsSections.push(alertSettingsSection1);
     optionsSections.push(alertSettingsSection2);
-
     alertOptionsContainer.replaceChildren(...optionsSections);
     
-    if(selectedCategory) {
-        document.querySelector(`#${categoryNameToElementID(selectedCategory)}`)?.classList.remove('selected-category');
-    }
-    newCategoryBtn?.classList.add('selected-category');
+    // Remove styling from the old selected category and apply it to the newly selected one, then update the reference
+    document.querySelector(`#${categoryNameToButtonID(selectedCategory)}`)?.classList.remove('selected-category');
+    document.querySelector(`#${categoryNameToButtonID(newCategory)}`)?.classList.add('selected-category');
     selectedCategory = newCategory;
     
-    await changeSelectedAlert(lastAlertForCategory.get(newCategory) || alertsForCategory[0]?.subscriptionType);
+    // Now on to displaying the correct alert
+    await changeSelectedAlert(lastAlertTypeForCategory.get(newCategory) ?? alertsForCategory.keys().next().value);
 
 }
 
-async function changeSelectedAlert(type: eventsubtypes.SubscriptionType | undefined) {
+/** Clean up any previously displayed alert details and set up the page with a newly selected alert */
+async function changeSelectedAlert(type: viewtypes.SubscriptionType | undefined): Promise<void> {
 
-    if(type === selectedAlertType || !type) return;
+    // Basic alert type validation
+    if(!type) {
+        console.error(`Did not receive an alert type when trying to change selected alert.`);
+        return;
+    }
+    if(type === selectedAlertType) return;
+
+    // Clear out displayed alert media, and if a preview is playing, stop its ending timeout
     if(alertPreviewTimeout) clearTimeout(alertPreviewTimeout);
-
     alertImageThumb.setAttribute('src', '');
     alertImagePreviewElement.setAttribute('src', '');
     alertAudioElement.setAttribute('src', '');
 
-    const newSelectedBtn = document.querySelector(`#${alertNameToElementID(type)}`) as HTMLButtonElement;
-    newSelectedBtn.classList.add('selected-alert');
+    // Remove styling from the previously selected alert if applicable and then apply it to the newly selected one
+    document.querySelector(`#${alertNameToButtonID(selectedAlertType)}`)?.classList.remove('selected-alert');
+    document.querySelector(`#${alertNameToButtonID(type)}`)?.classList.add('selected-alert');
     
-    document.querySelector(`#${alertNameToElementID(selectedAlertType)}`)?.classList.remove('selected-alert');
-    document.querySelector(`#${alertNameToElementID(type)}`)?.classList.add('selected-alert');
-    
+    // Update the state variables for the currently selected alert and move on to displaying the appropriate alert details
     selectedAlertType = type;
-    lastAlertForCategory.set(selectedCategory, selectedAlertType);
-    await displayAlertDetails(alertsMap.get(selectedCategory)?.find((alert) => {
-        return alert.subscriptionType === type;
-    }));
+    lastAlertTypeForCategory.set(selectedCategory, selectedAlertType);
+    await displayAlertDetails(selectedCategory, selectedAlertType);
 
 }
 
-async function displayAlertDetails(alert: alerttypes.EventAlertDetails | undefined) {
+/** Display the details for the currently selected alert. If the user has entered unsaved data, display it. Otherwise, show the details
+ *  for the currently saved alert on the server.
+ */
+async function displayAlertDetails(category: viewtypes.EventAlertCategory, alertType: viewtypes.SubscriptionType): Promise<void> {
 
-    const unsavedAlert = unsavedAlertsMap.get(selectedAlertType);
-    if(!alert) return;
+    // Basic validation. There should always be an entry for all valid category and event types.
+    const mappedAlert = alertsMap.get(category)?.get(alertType);
+    if(!mappedAlert) {
+        console.error(`Oops, something is broken. Alert details were requested for an unmapped alert. Category: ${category} Type: ${alertType}`);
+        return;
+    }
 
+    // Prioritize displaying any unsaved changes made by the user before the server data
+    const unsavedAlert = unsavedAlertsMap.get(category)?.get(alertType);
 
-    const volumeVal = unsavedAlert?.audioVolume || alert.audioVolume || DEFAULT_ALERT_DETAILS.audioVolume;
-    const durationVal = unsavedAlert?.alertDuration || alert.alertDuration || DEFAULT_ALERT_DETAILS.alertDuration;
-    const textVal = unsavedAlert?.alertText || alert.alertText || DEFAULT_ALERT_DETAILS.alertText;
-    const audioFileVal = unsavedAlert?.audioFile || alert.audioFile || DEFAULT_ALERT_DETAILS.audioFile;
-
-    const alertMediaData = alertsMedia.get(alert.subscriptionType) 
-                            ?? alertsMedia.set(alert.subscriptionType, { imageUrl: undefined, imageName: undefined, audioUrl: undefined, audioName: undefined })
-                                          .get(alert.subscriptionType) as viewtypes.AlertMediaData;
+    const volumeVal = unsavedAlert?.audioVolume ?? mappedAlert.audioVolume;
+    const durationVal = unsavedAlert?.alertDuration ?? mappedAlert.alertDuration;
+    const textVal = unsavedAlert?.alertText ?? mappedAlert.alertText;
+    const audioFileName = unsavedAlert?.audioFileName ?? mappedAlert.audioFileName;
+    const imageFileName = unsavedAlert?.imageFileName ?? mappedAlert.imageFileName;
     
+    // Now is the time to download any media from the server if the user hasn't already.
+    // Tell the function to retrieve an image or audio file from the server only if
+    // - (1) there is no existing URL to use (no imageUrl / audioUrl in the data structures)
+    // - AND
+    // - (2) there exists a file on the server to retrieve (did received a filename from the server)
+    let audioUrl = unsavedAlert?.audioUrl ?? mappedAlert.audioUrl;
+    let imageUrl = unsavedAlert?.imageUrl ?? mappedAlert.imageUrl;
+    const getImage = !imageUrl && imageFileName ? true : false;
+    const getAudio = !audioUrl && audioFileName ? true : false;
 
+    const APImedia = await getAlertMediaBySubId(mappedAlert.subscriptionId, getImage, getAudio);
+    if(APImedia?.imageBlob) { imageUrl = URL.createObjectURL(APImedia.imageBlob); } 
+    if(APImedia?.audioBlob) { audioUrl = URL.createObjectURL(APImedia.audioBlob); }     
 
-    let imageUrl = unsavedAlertsMedia.get(alert.subscriptionType)?.imageUrl || alertsMedia.get(alert.subscriptionType)?.imageUrl;
-    let audioUrl = unsavedAlertsMedia.get(alert.subscriptionType)?.audioUrl || alertsMedia.get(alert.subscriptionType)?.audioUrl;
-    const APImedia = await getAlertMediaBySubId(alert.subscriptionId, imageUrl === undefined, audioUrl === undefined)
-
-    if(APImedia?.imageBlob) {
-        if(alertMediaData.imageUrl) URL.revokeObjectURL(alertMediaData.imageUrl);
-        imageUrl = alertMediaData.imageUrl = URL.createObjectURL(APImedia.imageBlob);
-        alertMediaData.imageName = APImedia.imageFileName;
-    } 
-    if(APImedia?.audioBlob) {
-        if(alertMediaData.audioUrl) URL.revokeObjectURL(alertMediaData.audioUrl);
-        audioUrl = alertMediaData.audioUrl = URL.createObjectURL(APImedia.audioBlob);
-        alertMediaData.audioName = APImedia.audioFileName;
-    } 
-    
-
-    alertAudioFilenameInput.value = audioFileVal;
-    alertAudioVolumeInput.value = (volumeVal / 100).toString();
-    alertDurationInput.value = (durationVal / 1000).toString();
-    alertTextInput.value = textVal || '';
-
+    // The appropriate alert details have been worked out. Display them. Use default values if the user has never interacted
+    // with the current alert type before.
+    alertAudioFileNameInput.value = audioFileName ?? DEFAULT_ALERT_DETAILS.audioFileName;
+    alertAudioVolumeInput.value = ((volumeVal ?? DEFAULT_ALERT_DETAILS.audioVolume) / 100).toString();
+    alertDurationInput.value = ((durationVal ?? DEFAULT_ALERT_DETAILS.alertDuration) / 1000).toString();
+    alertTextInput.value = textVal ?? DEFAULT_ALERT_DETAILS.alertText;
     alertImageThumb.setAttribute('src', imageUrl ?? '');
     alertAudioElement.setAttribute('src', audioUrl ?? '');
 
 }
 
-function imageFileInputBtnClicked() {
-
-    alertImageFileInput.click();
-    alertImageFileButton.blur();
-
-}
-
-function audioFileInputBtnClicked() {
-
-    alertAudioFileInput.click();
-    alertAudioFileButton.blur();
-
-}
-
-function playAudioBtnClicked() {
-
-    playAlertAudio();
-    playAudioButton.blur();
-
-}
-
-function setAlertImage() {
-
-    if(!alertImageFileInput.files) return;
-    const file = alertImageFileInput.files[0];
-    if(!file) return;
-
-    const unsavedImageUrl = unsavedAlertsMedia.get(selectedAlertType)?.imageUrl;
-    if(unsavedImageUrl) URL.revokeObjectURL(unsavedImageUrl);
-
-    const blobURL = URL.createObjectURL(file);
-
-    alertImageThumb.setAttribute('src', blobURL);
-    
-    updateUnsavedAlert('imageFile', file.name);
-
-    // CONTINUE TS CONVERSION HERE -- ALSO VERIFY THAT WE DON'T NEED TO SAVE THE IMAGENAME AND AUDIONAME OR MAKE THEM OPTIONAL IN THE ALERTMEDIADATA TYPE
-
-    unsavedAlertsMedia.set(selectedAlertType, { 
-        imageUrl: blobURL,
-        audioUrl: unsavedAlertsMedia.get(selectedAlertType)?.audioUrl ?? undefined
-    });
-
-    alertImageFileInput.value = '';
-
-}
-
-function setAudioFile() {
-
-    let file: File | undefined;
-    if(!alertAudioFileInput.files || !alertAudioFileInput.files[0]) return;
-    file = alertAudioFileInput.files[0];
-    
-    URL.revokeObjectURL(unsavedAlertsMedia.get(selectedAlertType)?.audioUrl ?? '');
-
-    const blobURL = URL.createObjectURL(file);
-
-    alertAudioFilenameInput.value = file.name;
-    alertAudioElement.setAttribute('src', blobURL);
-
-    updateUnsavedAlert('audioFile', file.name);
-    unsavedAlertsMedia.set(selectedAlertType, { 
-        imageUrl: unsavedAlertsMedia.get(selectedAlertType)?.imageUrl,
-        audioUrl: blobURL
-    });
-
-    alertAudioFileInput.value = '';
-    
-}
-
+/** Identify all of the unsaved alert changes entered by the user and upload them to the server */
 async function uploadAlert() {
 
-    const unsavedAlert = unsavedAlertsMap.get(selectedAlertType);
+    // We must have some unsaved data to upload or this is pointless
+    const unsavedAlert = unsavedAlertsMap.get(selectedCategory)?.get(selectedAlertType);
     if(!unsavedAlert) return;
 
-    const mappedAlert = alertsMap.get(selectedCategory)?.find((alert) => {
-        return alert.subscriptionType === selectedAlertType;
-    });
+    // The currently selected alert type should never be undefined in the alerts map
+    const mappedAlert = alertsMap.get(selectedCategory)?.get(selectedAlertType);
     if(!mappedAlert) return;
 
     const data = new FormData();
 
-    const { imageUrl = undefined, audioUrl = undefined } = unsavedAlertsMedia.get(selectedAlertType) ?? { };
-
-    if(imageUrl) {
-        const imageBlob = await fetch(imageUrl).then(r => r.blob());
-        data.append('imageBlob', imageBlob, unsavedAlert.imageFile ?? undefined);
+    // Upload all unsaved data
+    if(unsavedAlert.imageUrl) {
+        const imageBlob = await fetch(unsavedAlert.imageUrl).then(r => r.blob());
+        data.append('imageBlob', imageBlob, unsavedAlert.imageFileName ?? undefined);
     }
-    if(audioUrl) {
-        const audioBlob = await fetch(audioUrl).then(r => r.blob());
-        data.append('audioBlob', audioBlob, unsavedAlert.audioFile ?? undefined);
+    if(unsavedAlert.audioUrl) {
+        const audioBlob = await fetch(unsavedAlert.audioUrl).then(r => r.blob());
+        data.append('audioBlob', audioBlob, unsavedAlert.audioFileName ?? undefined);
     }
     if(unsavedAlert.audioVolume) data.append('audioVolume', unsavedAlert.audioVolume.toString());
     if(unsavedAlert.alertDuration) data.append('alertDuration', unsavedAlert.alertDuration.toString());
@@ -431,72 +282,51 @@ async function uploadAlert() {
         body: data
     });
 
+    // For any data that were uploaded to the server, update alertsMap and then clear out the entry from the unsaved alerts data
     if(res.ok) {
 
-        if(unsavedAlert.imageFile) mappedAlert.imageFile = unsavedAlert.imageFile;
-        if(unsavedAlert.audioFile) mappedAlert.audioFile = unsavedAlert.audioFile;
+        if(unsavedAlert.imageFileName !== null) mappedAlert.imageFileName = unsavedAlert.imageFileName;
+        if(unsavedAlert.audioFileName !== null) mappedAlert.audioFileName = unsavedAlert.audioFileName;
         if(unsavedAlert.audioVolume) mappedAlert.audioVolume = unsavedAlert.audioVolume;
         if(unsavedAlert.alertDuration) mappedAlert.alertDuration = unsavedAlert.alertDuration;
-        if(unsavedAlert.alertText) mappedAlert.alertText = unsavedAlert.alertText;
-        (document.querySelector(`#${alertNameToElementID(selectedAlertType)}`) as HTMLButtonElement).textContent = mappedAlert.alertDescription;
-        unsavedAlertsMap.delete(selectedAlertType);
-        unsavedAlertsMedia.delete(selectedAlertType);
-
+        if(unsavedAlert.alertText !== null) mappedAlert.alertText = unsavedAlert.alertText;
+        (document.querySelector(`#${alertNameToButtonID(selectedAlertType)}`) as HTMLButtonElement).textContent = mappedAlert.alertDescription;
+        unsavedAlertsMap.get(selectedCategory)?.delete(selectedAlertType);
+        
     }
 
 }
 
+/** Restore all data that matches what we have on the server, discarding any unsaved changed the user has entered */
 async function discardAlertChanges() {
 
-    const unsavedAlert = unsavedAlertsMap.get(selectedAlertType);
+    // Make sure we have anything to do
+    const unsavedAlert = unsavedAlertsMap.get(selectedCategory)?.get(selectedAlertType);
     if(!unsavedAlert) return;
 
-    alertAudioElement.removeAttribute('src');
-    alertImageThumb.removeAttribute('src');
-    alertImagePreviewElement.removeAttribute('src');
-
-    alertImageFileInput.value = '';
-    alertAudioFileInput.value = '';
-    alertAudioFilenameInput.value = DEFAULT_ALERT_DETAILS.audioFile;
-
-    URL.revokeObjectURL(unsavedAlertsMedia.get(selectedAlertType)?.audioUrl ?? '');
-    URL.revokeObjectURL(unsavedAlertsMedia.get(selectedAlertType)?.imageUrl ?? '');
-    unsavedAlertsMedia.delete(selectedAlertType);
-    unsavedAlertsMap.delete(selectedAlertType);
-
-    const alertToRestore = alertsMap.get(selectedCategory)?.find((alert) => {
-        return alert.subscriptionType === selectedAlertType;
-    });
-    const alertBtn = document.querySelector(`#${alertNameToElementID(selectedAlertType)}`);
-    if(!alertBtn || !alertToRestore) {
-        console.error('Expected alert type not found in underlying data (Oops I broke something)');
-        return;
+    // Revoke the URLs for any unsaved image and audio files, and clear them from any elements they are referenced by
+    if(unsavedAlert.audioUrl) {
+        alertAudioElement.removeAttribute('src');
+        alertAudioFileInput.value = '';
+        URL.revokeObjectURL(unsavedAlert.audioUrl);
+    }
+    if(unsavedAlert.imageUrl) {
+        if(alertPreviewTimeout) { clearTimeout(alertPreviewTimeout); }
+        alertImageThumb.removeAttribute('src');
+        alertImagePreviewElement.removeAttribute('src');
+        alertImageFileInput.value = '';
+        URL.revokeObjectURL(unsavedAlert.imageUrl);
     }
 
-    alertBtn.textContent = alertToRestore.alertDescription;
-    await displayAlertDetails(alertToRestore);
+    // Delete the entry from the unsaved alerts map and update the text on the alert type button
+    unsavedAlertsMap.get(selectedCategory)?.delete(selectedAlertType);
 
-}
+    const alertTypeBtn = document.querySelector(`#${alertNameToButtonID(selectedAlertType)}`) as HTMLButtonElement;
+    const description = alertsMap.get(selectedCategory)?.get(selectedAlertType)?.alertDescription;
+    alertTypeBtn.textContent = description ?? 'Error';
 
-function updateUnsavedAlert(attr: keyof alerttypes.EventAlertDetails, val: string | number) {
 
-    const alertBtn = document.querySelector('.selected-alert');
-    if(!alertBtn) return;
-    const type = alertBtn.id.substring(0, alertBtn.id.indexOf('-')) as eventsubtypes.SubscriptionType;
-
-    if(!unsavedAlertsMap.has(type)) {
-        unsavedAlertsMap.set(type, {
-            imageFile: null, imageFileName: null, audioFile: null, audioFileName: null,
-            alertText: null, alertDuration: null, audioVolume: null, alertDescription: null
-        });
-        alertBtn.textContent += ' (UNSAVED)';
-    }
-
-    // Explanation: TypeScript can't express the relationship between a dynamic key and its corresponding value type.
-    // i.e., the transpiler doesn't know to take the value of 'attr' and look at its possible assignment types, so I need
-    // to cast the type of ALL of the properties of unsavedAlert to be (string | number | null)
-    const unsavedAlert = unsavedAlertsMap.get(type) as Record<string, string | number | null>;
-    unsavedAlert[attr] = val;
+    await displayAlertDetails(selectedCategory, selectedAlertType);
 
 }
 
@@ -506,8 +336,8 @@ async function getAlertMediaBySubId(subId: string, getImage: boolean, getAudio: 
 
     if(!getImage && !getAudio) return null;
 
-    // Endpoint returns JSON with { imageBase64: <Blob>, imageFileName: <string>, imageFileMime: <string>
-    //                              audioBase64: <Blob>, audioFileName: <string>, audioFileMime: <string>
+    // Endpoint returns JSON with { imageBase64: <Blob>, imageFileMime: <string>
+    //                              audioBase64: <Blob>, audioFileMime: <string>
     //                              subType: <SubscriptionType> }
     const response = await fetch(`/slither/alerts/media`, { method: 'POST',
                                                             headers: { 'Content-Type': 'application/json' } ,
@@ -529,7 +359,6 @@ async function getAlertMediaBySubId(subId: string, getImage: boolean, getAudio: 
             bytes[i] = binaryString.charCodeAt(i);
         }
         APImedia.imageBlob = new Blob([bytes], { type: resJson.imageFileMime });
-        APImedia.imageFileName = resJson.imageFileName;
     }
 
     if(resJson.audioBase64) {
@@ -539,21 +368,190 @@ async function getAlertMediaBySubId(subId: string, getImage: boolean, getAudio: 
             bytes[i] = binaryString.charCodeAt(i);
         }
         APImedia.audioBlob = new Blob([bytes], { type: resJson.audioFileMime });
-        APImedia.audioFileName = resJson.audioFileName;
     }
 
     return APImedia;
 
 }
 
-function categoryNameToElementID(catName: string): string {
+/******************************************SPECIFIC USER INTERACTIONS******************************************/
 
-    return `${catName.toLowerCase().replace(' ', '')}-alerts-category-btn`
+async function copyAlertsUrlToClipboard() {
+
+    const textToCopy = alertsUrlInput.value;
+    await copyTextToClipboard(textToCopy);
 
 }
 
-function alertNameToElementID(alertName: string): string {
+function previewAlert() {
+
+    if(alertPreviewTimeout) clearTimeout(alertPreviewTimeout);
+    alertImagePreviewElement.setAttribute('src', alertImageThumb.src);
+    playAlertAudio();
+    alertPreviewTimeout = window.setTimeout(() => {
+        alertImagePreviewElement.removeAttribute('src');
+        stopAlertAudio();
+    }, parseFloat(alertDurationInput.value) * 1000);
+
+}
+
+/***************************************SET A SINGLE ALERT DETAIL TYPE EVENTS***************************************/
+
+function setAlertImageFile() {
+
+    // Make sure we got a file
+    if(!alertImageFileInput.files) return;
+    const file = alertImageFileInput.files[0];
+    if(!file) return;
+
+    // TODO: Check file type
+
+    // If the current alert already has an unsaved image URL, revoke it before creating the new one.
+    const unsavedImageUrl = unsavedAlertsMap.get(selectedCategory)?.get(selectedAlertType)?.imageUrl;
+    if(unsavedImageUrl) URL.revokeObjectURL(unsavedImageUrl);
+
+    // Create new object URL for the uploaded file, display it in the thumbnail preview, and update the unsaved alerts map
+    const blobURL = URL.createObjectURL(file);
+    alertImageThumb.setAttribute('src', blobURL);
+    alertImagePreviewElement.setAttribute('src', blobURL);
+    updateUnsavedAlert('imageFileName', file.name);
+    updateUnsavedAlert('imageUrl', blobURL);
+
+    // Clear the value of the image file input
+    alertImageFileInput.value = '';
+
+}
+
+function setAlertAudioFile() {
+
+    // Make sure we got a file
+    if(!alertAudioFileInput.files) return;
+    const file = alertAudioFileInput.files[0];
+    if(!file) return;
+
+    // TODO: Check file type
+    
+    // If the current alert already has an unsaved image URL, revoke it before creating the new one.
+    const unsavedAudioUrl = unsavedAlertsMap.get(selectedCategory)?.get(selectedAlertType)?.audioUrl;
+    if(unsavedAudioUrl) URL.revokeObjectURL(unsavedAudioUrl);
+
+    // Create new object URL for the uploaded file, plug it into the audio element's src attribute, and update the unsaved alerts map
+    const blobURL = URL.createObjectURL(file);
+    alertAudioFileNameInput.value = file.name;
+    alertAudioElement.setAttribute('src', blobURL);
+    updateUnsavedAlert('audioFileName', file.name);
+    updateUnsavedAlert('audioUrl', blobURL);
+
+    // Clear the value of the audio file input
+    alertAudioFileInput.value = '';
+    
+}
+
+function setAlertAudioVolume() {
+
+    const newVolume = alertAudioVolumeInput.valueAsNumber;
+    alertAudioElement.volume = newVolume;
+    updateUnsavedAlert('audioVolume', newVolume * 100);
+    
+}
+
+function setAlertDuration() {
+    
+    updateUnsavedAlert('alertDuration', parseFloat(alertDurationInput.value) * 1000);
+
+}
+
+function setAlertText() {
+
+    updateUnsavedAlert('alertText', alertTextInput.value);
+
+}
+
+/***************************************BUTTON CLICKED TYPE EVENTS***************************************/
+
+function imageFileInputBtnClicked() {
+
+    alertImageFileInput.click();
+
+}
+
+function audioFileInputBtnClicked() {
+
+    alertAudioFileInput.click();
+
+}
+
+function playAudioBtnClicked() {
+
+    playAlertAudio();
+
+}
+
+/*******************************PAGE FUNCTIONALITY HELPERS*******************************/
+
+function updateUnsavedAlert(attr: keyof viewtypes.EventAlertDetails, val: string | number): void {
+
+    const subId = alertsMap.get(selectedCategory)?.get(selectedAlertType)?.subscriptionId;
+    if(!subId) {
+        console.error(`Could not obtain subscription ID for alert. Category: ${selectedCategory} Alert Type: ${selectedAlertType}`);
+        return;
+    }
+
+    if(!unsavedAlertsMap.has(selectedCategory)) unsavedAlertsMap.set(selectedCategory, new Map());
+    if(!unsavedAlertsMap.get(selectedCategory)?.has(selectedAlertType)) {
+        unsavedAlertsMap.get(selectedCategory)?.set(selectedAlertType, {
+            subscriptionId: subId,
+            imageFileName: null,
+            audioFileName: null,
+            alertText: null,
+            alertDuration: null,
+            audioVolume: null,
+            alertDescription: null
+    });
+    
+    (document.querySelector('.selected-alert') as HTMLButtonElement).textContent += ' (UNSAVED)';
+    }
+
+    // Explanation: TypeScript can't express the relationship between a dynamic key and its corresponding value type.
+    // i.e., the transpiler doesn't know to take the value of 'attr' and look at its possible assignment types, so I need
+    // to cast the type of ALL of the properties of unsavedAlert to be (string | number | null)
+    const unsavedAlert = unsavedAlertsMap.get(selectedCategory)?.get(selectedAlertType) as Record<string, string | number | null>;
+    unsavedAlert[attr] = val;
+
+}
+
+function playAlertAudio() {
+
+    alertAudioElement.currentTime = 0;
+    alertAudioElement.play().catch((_err: Error) => { });
+
+}
+
+function stopAlertAudio() {
+
+    alertAudioElement.pause();
+    alertAudioElement.currentTime = 0;
+
+}
+
+function categoryNameToButtonID(catName: string): string {
+
+    return `${catName.toLowerCase().replace(' ', '')}-alerts-category-btn`;
+
+}
+
+function alertNameToButtonID(alertName: string): string {
 
     return `${alertName}-alert-type-btn`;
+
+}
+
+async function copyTextToClipboard(text: string) {
+
+    try {
+        await navigator.clipboard.writeText(text);
+    } catch(err) {
+        console.error(`Error copying to clipboard: ${err}`);
+    }
 
 }
