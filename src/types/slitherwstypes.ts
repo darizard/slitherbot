@@ -1,12 +1,12 @@
 export type WSMessage = {
     type: WSMessageType
-}
+};
 
 export function isWSMessage(message: WSMessage): message is WSMessage {
     return (message.type === 'alert' ||
             message.type === 'ping' ||
             message.type === 'pong'
-    )
+    );
 }
 
 export type AlertMessage = WSMessage & {
@@ -15,6 +15,7 @@ export type AlertMessage = WSMessage & {
     data: {
         imageFile: string | null,
         audioFile: string | null,
+        audioVolume: number | null,
         alertText: string | null,
         duration: number | null
     }
@@ -26,7 +27,7 @@ export function isAlertMessage(message: AlertMessage): message is AlertMessage {
             (message.data.audioFile === undefined || typeof message.data.audioFile === 'string') &&
             (message.data.alertText === undefined || typeof message.data.alertText === 'string') &&
             (message.data.duration === undefined || typeof message.data.duration === 'number')
-    )
+    );
 }
 
 export type PingMessage = WSMessage & {
@@ -34,7 +35,7 @@ export type PingMessage = WSMessage & {
 }
 
 export function isPingMessage(message: WSMessage | PingMessage): message is PingMessage {
-    return (message.type === 'ping' && Object.keys(message).length === 1)
+    return (message.type === 'ping' && Object.keys(message).length === 1);
 }
 
 export type PongMessage = WSMessage & {
@@ -42,7 +43,7 @@ export type PongMessage = WSMessage & {
 }
 
 export function isPongMessage(message: WSMessage | PongMessage): message is PongMessage {
-    return (message.type === 'pong' && Object.keys(message).length === 1)
+    return (message.type === 'pong' && Object.keys(message).length === 1);
 }
 
 export type WSClient = {
@@ -56,7 +57,7 @@ export function isValidClientType(type: WSClientType): type is WSClientType {
     return (
         type === 'alerts' ||
         type === 'controller'
-    )
+    );
 }
 
 export type WSMessageType = 'alert' | 'ping' | 'pong'
@@ -66,7 +67,7 @@ export function isValidMessageType(type: WSMessageType): type is WSMessageType {
         type === 'alert' ||
         type === 'ping' ||
         type === 'pong'
-    )
+    );
 }
 
-export * as default from './slitherwstypes.js'
+export * as default from './slitherwstypes.js';

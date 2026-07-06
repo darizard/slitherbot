@@ -85,45 +85,35 @@ router.post('/event', rawParser, verifyTwitchEventMessage, async (req, res) => {
 		return;
 	}
 
+	// Handle event notification messages based on type
 	else if(messageType === 'notification') {
 
-		// Handle event notifications based on type!
+	// respond right away with 204 No Content
+	res.sendStatus(204);
+
+		// If he event type is one that is tied to an alert...
 		if(SlitherEventSub.alertSubscriptionTypes.has(req.body.subscription.type)) {
-
-			if(req.body.subscription.type !== 'channel.channel_points_custom_reward_redemption.add' &&
-				req.body.subscription.type !== 'channel.shoutout.receive' &&
-				req.body.subscription.type !== 'channel.follow'
-			) {
-				return res.sendStatus(204); // temporary return statement until more alert event types are supported
-			}
-
-			// respond right away with 204 No Content
-			res.sendStatus(204);
 
 			const userId = SlitherEventSub.broadcasterOf(req.body.subscription.condition, req.body.subscription.type);
 			const alertDetails = await eventalertssql.getAlert(req.body.subscription.id);
+			if(!alertDetails) return;
 
-			// send the reward redemption info to the WebSocket server
-			const wsmsgobj: slitherwstypes.AlertMessage = alertDetails ? {
-													type: 'alert',
-													userId: userId,
-													data: {
-														imageFile: alertDetails.image_file,
-														audioFile: alertDetails.audio_file,
-														alertText: alertDetails.alert_text,
-														duration: alertDetails.duration
-													}
-												  } :
-												  { 
-													type: 'alert', 
-													userId: userId,
-													data: { imageFile: 'headpatsgohard.gif', 
-															audioFile: 'DiscordMute.mp3', 
-															alertText: 'Reward Text!', 
-															duration: 8000 } 
-												  };
+			// if the alert has at least one non-null displayable element, send the details to the websocket server
+			if(alertDetails.alert_text !== null || alertDetails.audio_file !== null || alertDetails.image_file !== null) {
+				
+				const wsmsgobj: slitherwstypes.AlertMessage = {
+										type: 'alert',
+										userId: userId,
+										data: { imageFile: alertDetails.image_file,
+												audioFile: alertDetails.audio_file,
+												alertText: alertDetails.alert_text,
+												audioVolume: alertDetails.audio_volume,
+												duration: alertDetails.duration }
+										};
 
-			ws.send(wsmsgobj);
+				ws.send(wsmsgobj);
+
+			}
 
 		}
 
@@ -187,8 +177,6 @@ router.post('/alerts/token', jsonParser, async (req, res) => {
 
 });
 
-// TODO: Validate that the requested file has been uploaded by the same user who is making the request. Requests to 
-// this endpoint should only come from the alerts.ejs view after the server sends it a secure message over the websocket.
 router.get('/alerts/media/:alertstoken/:filename', async (req, res) => {
 
 	// Incoming filename references the hex charset filename stored in the user-specific media folder
