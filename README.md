@@ -1,45 +1,77 @@
-# Slither Twitch Helper - v0.0.2
+# Slither Twitch Helper - v0.1
 
-Slither is a remote-hosted Twitch alerts handling application. This is a personal project aimed at learning! It currently features the ability to listen to Twitch EventSub Custom Channel Point Reward Redemption events and display an alert in a browser, similar to StreamElements or StreamLabs, but of course in a limited capacity.
+Slither is a remote-hosted Twitch alerts handling application. It currently features the ability to listen to Twitch EventSub events and display an alert according to event type in a browser, similar to StreamElements or StreamLabs.
 
-v0.0.2 only triggers one kind of alert for all channel point redeems. Lots of customizability to come!
+v0.1 implements alert display and configuration, EventSub integration and maintenance, and secure authentication in all layers of the stack.
 
 Thanks for looking. :\)
 
+## A Note on LLM Usage
+
+This project was developed partially with assistance from an LLM.
+
+### What the LLM provided:
+- The occasional code snippet--fewer than half a dozen--especially examples of how to use a package or API in the face of confusing or cumbersome documentation. Occasionally, the code the LLM generated made it directly into the project source
+- Explanations about packages, frameworks, software patterns, and common project structures, and how they might apply to a project of Slither's scale and scope
+- Assistance understanding TypeScript configuration (yes, this gets its own mention)
+- Security analyses
+
+### What the LLM did NOT provide:
+- Entire functions, services, classes, types, endpoints, or source files
+- Data structure decisions
+- Database design
+- Front-end modules
+- Authentication and security implementation details
+- Hosting, web server, and reverse proxy implementation
+
 ## Future Plans
 
-v0.1 will be complete when all functionality surrounding EventSub event maintenance is implemented. I still need to handle external subscription changes, such as Twitch revocations, across the application. After this, alert customization will be the focus.
+- Live alert testing / previews on stream
+- Alert queueing
+- Support for all different custom channel point rewards
 
 ## Features
 
-- 🎉 Real-time Twitch alerts via EventSub
-  - Channel Point Redemptions
-- 🔒 Secure authentication and authorization with Twitch OAuth and server-issued JWTs
+- 🎉 Real-time Twitch alerts via EventSub events:
+  - Bits received
+  - Channel Point Rewards redeemed or updated
+  - Viewer follows the channel
+  - Hype Train start/end
+  - Incoming raids
+  - New, Continued, and Gifted subscriptions
+- 🔒 Secure multi-layer authentication with OAuth 2.0 and server-issued JWTs
 - ⚡ Low-latency WebSocket delivery
-- 🖥️ Easy OBS integration
+- 🖥️ Easy integration with most streaming software
+- ⚙️ Dashboard interface for instant alert configuration
 
 ## Tech Stack
 
-- Apache2 Web Server with SSL
-- Node.js + Express.js
-- TypeScript
-- EJS templating
-- MySQL
+- Apache2 Web Server with SSL and Reverse Proxy
+- MySQL relational database
+- Type-safe Kysely SQL query builder
+- Pure TypeScript--no raw JavaScript source files
+- Node.js backend services
+- Express.js routes and middleware
+- EJS for HTML templating and server data ingestion
+- Vanilla CSS styling
 
 ### Project Structure
 
 ```
-src/
-├── classes/       # Custom classes for abstraction
-├── db/            # Database and Kysely config
-    └── queries/   # DB Queries
-├── routes/        # Route controllers
-├── services/      # Business logic
-├── types/         # TypeScript type definitions
-└── views/         # EJS templates
-    ├── test/      # Test pages
-    └── slither/   # Twitch-related pages
-public/            # Static assets
+public/             # Static assets
+    └── css/        # Front-end styling
+resources/          # Media used to play alerts
+src/                # Server code
+├── classes/        # Custom classes for abstraction
+├── client/         # Front-end TypeScript files
+├── db/             # Database and Kysely config
+    └── queries/    # DB Queries
+├── middleware/     # Express.js middleware
+├── routes/         # Route controllers
+├── services/       # Business logic
+├── types/          # TypeScript type definitions
+└── views/          # EJS templates
+    └── slither/    # Twitch-related pages
 ```
 
 ## License
