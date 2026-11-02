@@ -5,9 +5,7 @@ import { dirname, join as pathJoin } from 'path'
 import cookieParser from 'cookie-parser'
 
 // API routes
-import slitherRoutes from './routes/slither.js'
-import cssRoutes from './routes/css.js'
-import jsRoutes from './routes/js.js'
+import addRoutes from './router.js'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
@@ -20,8 +18,6 @@ app.set('views', pathJoin(__dirname, 'views')) // set views directory for EJS te
 app.use(cookieParser())
 
 // Define Routes
-app.use('/slither/css', cssRoutes.router)
-app.use('/slither/js', jsRoutes.router)
-app.use('/slither', slitherRoutes.router)
+addRoutes(app)
 
 export { app }

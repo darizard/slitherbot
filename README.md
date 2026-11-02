@@ -6,27 +6,9 @@ v0.1 implements alert display and configuration, EventSub integration and mainte
 
 Thanks for looking. :\)
 
-## A Note on LLM Usage
-
-This project was developed partially with assistance from an LLM.
-
-### What the LLM provided:
-- The occasional code snippet--fewer than half a dozen--especially examples of how to use a package or API in the face of confusing or cumbersome documentation. Occasionally, the code the LLM generated made it directly into the project source
-- Explanations about packages, frameworks, software patterns, and common project structures, and how they might apply to a project of Slither's scale and scope
-- Assistance understanding TypeScript configuration (yes, this gets its own mention)
-- Security analyses
-
-### What the LLM did NOT provide:
-- Entire functions, services, classes, types, endpoints, or source files
-- Data structure decisions
-- Database design
-- Front-end modules
-- Authentication and security implementation details
-- Hosting, web server, and reverse proxy implementation
-
 ## Future Plans
 
-- Live alert testing / previews on stream
+- Live alert testing / previews
 - Alert queueing
 - Support for all different custom channel point rewards
 
@@ -42,17 +24,17 @@ This project was developed partially with assistance from an LLM.
 - 🔒 Secure multi-layer authentication with OAuth 2.0 and server-issued JWTs
 - ⚡ Low-latency WebSocket delivery
 - 🖥️ Easy integration with most streaming software
-- ⚙️ Dashboard interface for instant alert configuration
+- ⚙️ Web dashboard for instant alert configuration
 
 ## Tech Stack
 
 - Apache2 Web Server with SSL and Reverse Proxy
-- MySQL relational database
+- MySQL DB
 - Type-safe Kysely SQL query builder
 - Pure TypeScript--no raw JavaScript source files
-- Node.js backend services
-- Express.js routes and middleware
-- EJS for HTML templating and server data ingestion
+- Node.js backend
+- Express.js app, routes, and middleware
+- EJS templating engine
 - Vanilla CSS styling
 
 ### Project Structure
