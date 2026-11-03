@@ -1,5 +1,5 @@
 import { EventSubCondition, SubscriptionType, SlitherEventSubscription } from "../types/eventsubtypes.js";
-import { twitch as twitchConfig, ssl as sslConfig } from '../config.js';
+import { twitchConfig, sslConfig } from '../config.js';
 
 export class SlitherEventSub {
 

@@ -3,14 +3,14 @@ import https from 'https'
 import fs from 'fs'
 
 // running services
-import eventsubclient from './services/eventsubclient.js'
+import app from './app.js'
 import eventalertsclient from './services/eventalertsclient.js'
+import eventsubclient from './services/eventsubclient.js'
 import wsserver from './services/wsserver.js'
-import { app } from './app.js'
 import { validateAndRefreshUserAccessTokens } from './services/twitchauth.js'
 
 // credentials (need SQL and SSL here)
-import { ssl as sslConfig } from './config.js'
+import { sslConfig } from './config.js'
 
 // SSL Credentials to start server
 const options = {

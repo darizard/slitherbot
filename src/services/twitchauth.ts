@@ -5,7 +5,7 @@
 import { Insertable, InsertResult } from 'kysely';
 import { DB } from "kysely-codegen";
 import twitchsql, { updateSlitherAppToken } from '../db/queries/twitchauth.js';
-import { twitch as twitchConfig, ssl as sslConfig } from "../config.js";
+import { twitchConfig, sslConfig } from "../config.js";
 import authtypes from '../types/authtypes.js';
 
 export async function getValidatedSlitherAppToken(): Promise<string | undefined> {

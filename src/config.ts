@@ -1,6 +1,6 @@
 import dotenv from 'dotenv'
 
-export { app, twitch, ssl, mysql, jwt, ws }
+export { appConfig, twitchConfig, sslConfig, mysqlConfig, jwtConfig, wsConfig }
 
 const parseString = (v: string | undefined, name: string) => v ? String(v) : undefined
 const parseNumber = (v: string | undefined) => v ? Number(v) : undefined
@@ -8,23 +8,23 @@ const parseNumber = (v: string | undefined) => v ? Number(v) : undefined
 dotenv.config({ path: `/opt/slitherbot/src/config/paths` })
 dotenv.config({ path: getEnvVar('SECURE_ENV_PATH', parseString) })
 
-const app = {
+const appConfig = {
     appPath: getEnvVar('APP_PATH', parseString)
 }
 
-const twitch = {
+const twitchConfig = {
     clientId: getEnvVar('TWITCH_CLIENT_ID', parseString),
     clientSecret: getEnvVar('TWITCH_CLIENT_SECRET', parseString),
     eventsubSecret: getEnvVar('TWITCH_EVENTSUB_SECRET', parseString)
 }
 
-const ssl = {
+const sslConfig = {
     privateKeyPath: getEnvVar('SSL_PRIVATE_KEY_PATH', parseString),
     certificatePath: getEnvVar('SSL_CERTIFICATE_PATH', parseString),
     hostName: getEnvVar('HOST_NAME', parseString)
 }
 
-const mysql = {
+const mysqlConfig = {
     host: getEnvVar('DB_HOST', parseString),
     user: getEnvVar('DB_USER', parseString),
     port: getEnvVar('DB_PORT', parseNumber),
@@ -33,12 +33,12 @@ const mysql = {
     databaseUrl: getEnvVar('DB_URL', parseString)
 }
 
-const jwt = {
+const jwtConfig = {
     refreshSecret: getEnvVar('JWT_REFRESH_SECRET', parseString),
     accessSecret: getEnvVar('JWT_ACCESS_SECRET', parseString)
 }
 
-const ws = {
+const wsConfig = {
     controllerSecret: getEnvVar('CONTROLLER_WEBSOCKET_SECRET', parseString),
     alertsSecret: getEnvVar('ALERTS_WEBSOCKET_SECRET', parseString)
 }

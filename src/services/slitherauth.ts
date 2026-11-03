@@ -6,7 +6,7 @@ import { generateSecret } from './secrets.js';
 import slithersql from '../db/queries/slitherauth.js';
 import eventsubsql from '../db/queries/eventsub.js';
 import { SignJWT, jwtVerify } from 'jose';
-import { jwt as jwtConfig, ws as wsConfig, app as appConfig } from '../config.js';
+import { jwtConfig, wsConfig, appConfig } from '../config.js';
 import type { SlitherTokenType } from '../types/authtypes.js';
 import type { Response } from 'express';
 import { SlitherEventSub } from '../classes/eventsub.js';

@@ -1,6 +1,6 @@
 import express from 'express'
 import fs from 'fs'
-import { app as appConfig } from '../config.js'
+import { appConfig } from '../config.js'
 
 const router = express.Router()
 

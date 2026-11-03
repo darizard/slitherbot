@@ -1,3 +1,6 @@
+# Don't commit LLM instructions for now
+AGENTS.md
+
 ### App Specific Ignores ###
 twitch-api-scopes.ts
 

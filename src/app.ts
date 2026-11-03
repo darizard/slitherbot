@@ -20,4 +20,4 @@ app.use(cookieParser())
 // Define Routes
 addRoutes(app)
 
-export { app }
+export default app 

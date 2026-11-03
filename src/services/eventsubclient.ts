@@ -14,7 +14,7 @@
 
 // internal app imports
 import { getValidatedSlitherAppToken } from './twitchauth.js';
-import { twitch as twitchConfig } from '../config.js';
+import { twitchConfig } from '../config.js';
 import eventsubtypes from '../types/eventsubtypes.js';
 
 // DB imports

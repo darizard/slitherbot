@@ -19,7 +19,7 @@ import { WSClientType } from '../types/slitherwstypes.js'; // Import the WebSock
 import { SlitherAlertsServerWebSocket, SlitherControllerServerWebSocket } from '../classes/slitherws.js';
 import { jwtVerify } from 'jose';
 
-import { ws as wsConfig } from '../config.js';
+import { wsConfig } from '../config.js';
 import { verifySlitherToken } from './slitherauth.js';
 
 export default { init };

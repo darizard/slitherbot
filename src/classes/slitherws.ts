@@ -8,7 +8,7 @@ import { WebSocket, RawData } from 'ws'
 import type { WSMessage, AlertMessage, PingMessage, PongMessage } from '../types/slitherwstypes.js'
 import { isAlertMessage, isPingMessage, isPongMessage } from '../types/slitherwstypes.js'
 
-import { ssl as sslConfig } from '../config.js'
+import { sslConfig } from '../config.js'
 
 import { SignJWT } from 'jose'
 

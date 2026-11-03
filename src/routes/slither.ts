@@ -6,7 +6,7 @@ import fs from 'fs';
 import mime from 'mime/lite';
 
 // .env configuration imports
-import { ssl as sslConfig, twitch as twitchConfig, ws as wsConfig, app as appConfig } from '../config.js';
+import { sslConfig, twitchConfig, wsConfig, appConfig } from '../config.js';
 
 // Internal abstraction classes
 import { SlitherControllerClientWebSocket } from '../classes/slitherws.js';

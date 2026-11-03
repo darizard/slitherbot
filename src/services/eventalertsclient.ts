@@ -1,7 +1,7 @@
 import eventalertssql from '../db/queries/eventalerts.js';;
 import twitchsql from '../db/queries/twitchauth.js';
 import fs from 'fs';
-import { app as appConfig } from '../config.js';
+import { appConfig } from '../config.js';
 
 export async function initialize(): Promise<void> {
 

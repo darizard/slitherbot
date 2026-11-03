@@ -1,7 +1,7 @@
 import { RequestHandler } from 'express';
 import crypto from 'crypto';
 
-import { twitch as twitchConfig } from '../config.js';
+import { twitchConfig } from '../config.js';
 
 const RECENT_MESSAGES = new Set<string>();
 

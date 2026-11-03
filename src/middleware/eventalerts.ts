@@ -1,6 +1,6 @@
 import multer from 'multer';
 import { FileFilterCallback } from 'multer';
-import { app as appConfig } from '../config.js';
+import { appConfig } from '../config.js';
 import { SlitherAuthenticatedRequest } from '../types/authtypes.js';
 import path from 'path';
 
