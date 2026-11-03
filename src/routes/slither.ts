@@ -12,26 +12,25 @@ import { sslConfig, twitchConfig, wsConfig, appConfig } from '../config.js'
 import { SlitherControllerClientWebSocket } from '../classes/slitherws.js'
 
 // Internal TS types and runtime type guards
-import authtypes from '../types/authtypes.js'
-import slitherwstypes from '../types/slitherwstypes.js'
-import eventsubtypes from '../types/eventsubtypes.js'
 import alerttypes from '../types/alerttypes.js'
+import authtypes from '../types/authtypes.js'
+import eventsubtypes from '../types/eventsubtypes.js'
 
 // Express Middleware
-import { verifyTwitchEventMessage } from '../middleware/twitchauth.js'
+import { uploadAlertMedia } from '../middleware/eventalerts.js'
 import { authenticateSlitherUser } from '../middleware/slitherauth.js'
-import { alertMediaUploadMiddleware } from '../middleware/eventalerts.js'
+import { verifyMessage, parseJson } from '../middleware/twitchevents.js'
 
 // Internal logic modules
+import esclient from '../services/eventsubclient.js'
 import slitherauth from '../services/slitherauth.js'
 import twitchauth from '../services/twitchauth.js'
-import eventsubclient from '../services/eventsubclient.js'
 import { SlitherEventSub } from '../classes/eventsub.js'
 
 // Direct DB queries
-import slithersql from '../db/queries/slitherauth.js'
 import eventalertssql from '../db/queries/eventalerts.js'
 import eventsubsql from '../db/queries/eventsub.js'
+import slithersql from '../db/queries/slitherauth.js'
 
 const AUTH_REDIRECT_URI = new URL(`https://${sslConfig.hostName}/slither/oauth`)
 const AUTH_STATES = new Set<string>()
@@ -40,7 +39,7 @@ const rawParser = bodyParser.raw({ type: 'application/json' })
 const jsonParser = bodyParser.json()
 const slitherRouter = express.Router()
 
-const ws = new SlitherControllerClientWebSocket()
+const ws = new SlitherControllerClientWebSocket() // TODO: Move to a more suitable location
 void ws.connect(wsConfig.controllerSecret)
 
 /**
@@ -52,105 +51,33 @@ void ws.connect(wsConfig.controllerSecret)
  * 		  subscription for
  * 		OR
  * 		- An existing subscription has been revoked
- * 
- * This method must call the appropriate channel point reward
  **/
-slitherRouter.post('/event', rawParser, verifyTwitchEventMessage, async (req, res) => {
+slitherRouter.post('/event', rawParser, verifyMessage, parseJson, async (req, res) => {
 
-	// Make sure body is parseable json
-	try { req.body = JSON.parse(req.body) }
-	catch(e) { 
-		// TODO: Elevate log as Twitch has changed or added something I need to know about
-		console.error('Error parsing req.body as JSON: ', e)
-		res.sendStatus(204)
-	}
+	// TODO: Zod
+	const messageType = req.headers['twitch-eventsub-message-type'] as string
+	console.log(`messageType: ${messageType}`)
 
-	// We trust twitch to give us the message type as a string
-	const messageType: string = req.headers['twitch-eventsub-message-type'] as string
+	switch(messageType) {
+		case 'webhook_callback_verification':
+			await esclient.handleChallenge(req.body, res)
+			return
 
-	if(messageType === 'webhook_callback_verification') {
+		case 'notification':
+			console.log("notification received")
+			await esclient.handleEvent(req, res, ws)
+			return
 
-		const challengeReq: eventsubtypes.WebhookCallbackChallengeRequest = req.body
-		
-		// We need to register the EventSub subscription. First, respond to Twitch's auth challenge
-		res.set('Content-Type', 'text/plain')
-		   .set('Content-Length', `${req.body.challenge.length}`)
-		   .status(200)
-		   .send(challengeReq.challenge)
+		case 'revocation':
+			esclient.handleRevocation(req, res)
+			return
 
-		// Once challenge has been sent, assume the subscription has been enabled. This is an extremely
-		// simple request that we are sending back so there should be no issue
-		await eventsubclient.registerNewEventSubscription(challengeReq)
+		default:
+			esclient.handleUnexpectedMessage(req, res, messageType)
+			return
 
-		return
-	}
-
-	// Handle event notification messages based on type
-	else if(messageType === 'notification') {
-
-	// respond right away with 204 No Content
-	res.sendStatus(204)
-
-		// If he event type is one that is tied to an alert...
-		if(SlitherEventSub.alertSubscriptionTypes.has(req.body.subscription.type)) {
-
-			const userId = SlitherEventSub.broadcasterOf(req.body.subscription.condition, req.body.subscription.type)
-			const alertDetails = await eventalertssql.getAlert(req.body.subscription.id)
-			if(!alertDetails) return
-
-			// if the alert has at least one non-null displayable element, send the details to the websocket server
-			if(alertDetails.alert_text !== null || alertDetails.audio_file !== null || alertDetails.image_file !== null) {
-				
-				const wsmsgobj: slitherwstypes.AlertMessage = {
-										type: 'alert',
-										userId: userId,
-										data: { imageFile: alertDetails.image_file,
-												audioFile: alertDetails.audio_file,
-												alertText: alertDetails.alert_text,
-												audioVolume: alertDetails.audio_volume,
-												duration: alertDetails.duration }
-										}
-
-				ws.send(wsmsgobj)
-
-			}
-
-		}
-
-		return
 	}
 	
-	/***************************SUBSCRIPTION REVOKED BY TWITCH******************************************************
-	* Subscriptions can be revoked by Twitch for the following reasons:
-	*  	- 'user_removed': User no longer exists
-	*		ACTION: Delete user's Twitch data from Slither entirely
-	*   - 'authorization_revoked': User revoked auth token, OR just changed their password
-	*   	ACTION: Verify the user access token
-	*		- Successful (pw changed): Resubscribe to the event
-	*		- Unsuccessful (user revoked token): Deactivate user on backend (TODO: Determine what needs to be done here)
-	*   - 'notification_failures_exceeded': Callback failed to respond too many times
-	* 		ACTION: Review the event's handler code to determine why our callback is not responding
-	* 	- 'version_removed': The type and version of subscription is no longer valid.
-	* 		ACTION: Review Twitch docs and figure out how to change the code for the event handler and/or subscription creation
-	****************************************************************************************************************/
-	else if(messageType === 'revocation') {
-		res.sendStatus(204)
-
-		console.log(`Subscription revoked by Twitch! Reason: ${req.body.subscription.status}`)
-		console.log(`Full message body: ${JSON.stringify(req.body)}`)
-
-		eventsubclient.handleDisabledSubscription(req.body.subscription as eventsubtypes.TwitchEventNotification)
-
-		return
-	}
-
-	else {
-		res.sendStatus(204)
-		console.log(`Unknown message type received from Twitch: ${req.headers[messageType]}`)
-
-		return
-	}
-
 })
 
 // Serves a page that displays alerts for the user authenticated by paramToken. paramToken is a semi-public credential
@@ -263,7 +190,7 @@ slitherRouter.get('/favicon', async (_req, res) => {
 
 })
 
-slitherRouter.post('/alerts', authenticateSlitherUser, alertMediaUploadMiddleware, async (req: authtypes.SlitherAuthenticatedRequest, res) => {
+slitherRouter.post('/alerts', authenticateSlitherUser, uploadAlertMedia, async (req: authtypes.SlitherAuthenticatedRequest, res) => {
 
 	if(req.fileValidationError) {
 		return res.status(400).send('Invalid filename')

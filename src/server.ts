@@ -27,8 +27,8 @@ wsserver.init(httpServer)
 // Listen!
 httpServer.listen(8080, async () => {
 
-	console.log('HTTPS Server running on port 8080')
 	await runServices()
+	console.log('HTTPS Server running on port 8080')
 
 })
 

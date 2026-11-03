@@ -1,8 +1,8 @@
 // core packages
-import express from 'express'
-import { fileURLToPath } from 'url'
-import { dirname, join as pathJoin } from 'path'
 import cookieParser from 'cookie-parser'
+import express from 'express'
+import { dirname, join as pathJoin } from 'path'
+import { fileURLToPath } from 'url'
 
 // API routes
 import addRoutes from './router.js'
@@ -20,4 +20,4 @@ app.use(cookieParser())
 // Define Routes
 addRoutes(app)
 
-export default app 
+export default app

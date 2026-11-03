@@ -35,7 +35,7 @@ const fileFilter = (req: SlitherAuthenticatedRequest, file: Express.Multer.File,
     
 }
 
-export const alertMediaUploadMiddleware = multer({ 
+export const uploadAlertMedia = multer({ 
         storage: storage,
         limits: { fileSize: 5e+6 },
         fileFilter: fileFilter })

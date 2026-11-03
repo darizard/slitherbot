@@ -3,7 +3,7 @@ import { db } from '../database.js';
 import { DB } from 'kysely-codegen';
 import { sql, Insertable, InsertResult, Selectable } from 'kysely';
 
-export async function getAllSubscriptions(): Promise<Set<SlitherEventSubscription>> {
+export async function getAllSubs(): Promise<Set<SlitherEventSubscription>> {
 
     const allSubs = await db.selectFrom('EventSubs')
         .selectAll()

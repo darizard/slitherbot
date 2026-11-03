@@ -10,7 +10,7 @@ import { jwtConfig, wsConfig, appConfig } from '../config.js';
 import type { SlitherTokenType } from '../types/authtypes.js';
 import type { Response } from 'express';
 import { SlitherEventSub } from '../classes/eventsub.js';
-import { subscribeToEvent } from '../services/eventsubclient.js';
+import { subToEvent } from '../services/eventsubclient.js';
 import fs from 'fs';
 
 const SECRETS = new Map<string, Uint8Array>();
@@ -66,7 +66,7 @@ export async function registerSlitherUser(userId: string): Promise<void | null> 
     subsForUser.forEach((sub) => { existingSubTypes.push(sub.type); });
 
     SlitherEventSub.getRequiredUserSubscriptions(userId).forEach(async (requiredSub) => {
-        if(!existingSubTypes.includes(requiredSub.type) && !await subscribeToEvent(requiredSub.type, requiredSub.channel_id)) {
+        if(!existingSubTypes.includes(requiredSub.type) && !await subToEvent(requiredSub.type, requiredSub.channel_id)) {
             console.error(`Error upserting newly registered user's required EventSub user event types for userId ${userId}`);
         }
     });
