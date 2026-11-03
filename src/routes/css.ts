@@ -1,10 +1,10 @@
 import express from 'express'
 import fs from 'fs'
 
-const router = express.Router()
+const cssRouter = express.Router()
 
 // Serve css files to views opaquely
-router.get('/:filename', (req, res) => {
+cssRouter.get('/:filename', (req, res) => {
 
     // Restrict characters used in requested filenames to a-z, A-Z, 0-9, and the literals - and _, and extension must be .css
     const ALLOWED_FILENAMES_STRICT = /^[\w\-]+\.(?i:css)$/
@@ -17,4 +17,4 @@ router.get('/:filename', (req, res) => {
     return res.status(200).set('Content-Type', 'text/css').sendFile(CSS_FILE)
 })
 
-export default { router }
+export default cssRouter

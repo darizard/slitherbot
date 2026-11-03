@@ -2,10 +2,10 @@ import express from 'express'
 import fs from 'fs'
 import { appConfig } from '../config.js'
 
-const router = express.Router()
+const jsRouter = express.Router()
 
 // Serve frontend javascript files to views opaquely
-router.get('/:filename', (req, res) => {
+jsRouter.get('/:filename', (req, res) => {
 
     // Restrict characters used in requested filenames to a-z, A-Z, 0-9, and the literals - and _, and extension must be .js
     const ALLOWED_FILENAMES_STRICT = /^[\w\-]+\.(?i:js)$/
@@ -18,4 +18,4 @@ router.get('/:filename', (req, res) => {
     return res.status(200).set('Content-Type', 'text/javascript').sendFile(JS_FILE)
 })
 
-export default { router }
+export default jsRouter

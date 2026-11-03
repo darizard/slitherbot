@@ -1,47 +1,47 @@
 // External modules
-import express from 'express';
-import bodyParser from 'body-parser';
-import crypto from 'crypto';
-import fs from 'fs';
-import mime from 'mime/lite';
+import express from 'express'
+import bodyParser from 'body-parser'
+import crypto from 'crypto'
+import fs from 'fs'
+import mime from 'mime/lite'
 
 // .env configuration imports
-import { sslConfig, twitchConfig, wsConfig, appConfig } from '../config.js';
+import { sslConfig, twitchConfig, wsConfig, appConfig } from '../config.js'
 
 // Internal abstraction classes
-import { SlitherControllerClientWebSocket } from '../classes/slitherws.js';
+import { SlitherControllerClientWebSocket } from '../classes/slitherws.js'
 
 // Internal TS types and runtime type guards
-import authtypes from '../types/authtypes.js';
-import slitherwstypes from '../types/slitherwstypes.js';
-import eventsubtypes from '../types/eventsubtypes.js';
-import alerttypes from '../types/alerttypes.js';
+import authtypes from '../types/authtypes.js'
+import slitherwstypes from '../types/slitherwstypes.js'
+import eventsubtypes from '../types/eventsubtypes.js'
+import alerttypes from '../types/alerttypes.js'
 
 // Express Middleware
-import { verifyTwitchEventMessage } from '../middleware/twitchauth.js';
-import { authenticateSlitherUser } from '../middleware/slitherauth.js';
-import { alertMediaUploadMiddleware } from '../middleware/eventalerts.js';
+import { verifyTwitchEventMessage } from '../middleware/twitchauth.js'
+import { authenticateSlitherUser } from '../middleware/slitherauth.js'
+import { alertMediaUploadMiddleware } from '../middleware/eventalerts.js'
 
 // Internal logic modules
-import slitherauth from '../services/slitherauth.js';
-import twitchauth from '../services/twitchauth.js';
-import eventsubclient from '../services/eventsubclient.js';
-import { SlitherEventSub } from '../classes/eventsub.js';
+import slitherauth from '../services/slitherauth.js'
+import twitchauth from '../services/twitchauth.js'
+import eventsubclient from '../services/eventsubclient.js'
+import { SlitherEventSub } from '../classes/eventsub.js'
 
 // Direct DB queries
-import slithersql from '../db/queries/slitherauth.js';
-import eventalertssql from '../db/queries/eventalerts.js';
-import eventsubsql from '../db/queries/eventsub.js';
+import slithersql from '../db/queries/slitherauth.js'
+import eventalertssql from '../db/queries/eventalerts.js'
+import eventsubsql from '../db/queries/eventsub.js'
 
-const AUTH_REDIRECT_URI = new URL(`https://${sslConfig.hostName}/slither/oauth`);
-const AUTH_STATES = new Set<string>();
+const AUTH_REDIRECT_URI = new URL(`https://${sslConfig.hostName}/slither/oauth`)
+const AUTH_STATES = new Set<string>()
 
-const rawParser = bodyParser.raw({ type: 'application/json' });
-const jsonParser = bodyParser.json();
-const router = express.Router();
+const rawParser = bodyParser.raw({ type: 'application/json' })
+const jsonParser = bodyParser.json()
+const slitherRouter = express.Router()
 
-const ws = new SlitherControllerClientWebSocket();
-void ws.connect(wsConfig.controllerSecret);
+const ws = new SlitherControllerClientWebSocket()
+void ws.connect(wsConfig.controllerSecret)
 
 /**
  * POST request received from Twitch when either:
@@ -55,48 +55,48 @@ void ws.connect(wsConfig.controllerSecret);
  * 
  * This method must call the appropriate channel point reward
  **/
-router.post('/event', rawParser, verifyTwitchEventMessage, async (req, res) => {
+slitherRouter.post('/event', rawParser, verifyTwitchEventMessage, async (req, res) => {
 
 	// Make sure body is parseable json
-	try { req.body = JSON.parse(req.body); }
+	try { req.body = JSON.parse(req.body) }
 	catch(e) { 
 		// TODO: Elevate log as Twitch has changed or added something I need to know about
-		console.error('Error parsing req.body as JSON: ', e);
-		res.sendStatus(204);
+		console.error('Error parsing req.body as JSON: ', e)
+		res.sendStatus(204)
 	}
 
 	// We trust twitch to give us the message type as a string
-	const messageType: string = req.headers['twitch-eventsub-message-type'] as string;
+	const messageType: string = req.headers['twitch-eventsub-message-type'] as string
 
 	if(messageType === 'webhook_callback_verification') {
 
-		const challengeReq: eventsubtypes.WebhookCallbackChallengeRequest = req.body;
+		const challengeReq: eventsubtypes.WebhookCallbackChallengeRequest = req.body
 		
 		// We need to register the EventSub subscription. First, respond to Twitch's auth challenge
 		res.set('Content-Type', 'text/plain')
 		   .set('Content-Length', `${req.body.challenge.length}`)
 		   .status(200)
-		   .send(challengeReq.challenge);
+		   .send(challengeReq.challenge)
 
 		// Once challenge has been sent, assume the subscription has been enabled. This is an extremely
 		// simple request that we are sending back so there should be no issue
-		await eventsubclient.registerNewEventSubscription(challengeReq);
+		await eventsubclient.registerNewEventSubscription(challengeReq)
 
-		return;
+		return
 	}
 
 	// Handle event notification messages based on type
 	else if(messageType === 'notification') {
 
 	// respond right away with 204 No Content
-	res.sendStatus(204);
+	res.sendStatus(204)
 
 		// If he event type is one that is tied to an alert...
 		if(SlitherEventSub.alertSubscriptionTypes.has(req.body.subscription.type)) {
 
-			const userId = SlitherEventSub.broadcasterOf(req.body.subscription.condition, req.body.subscription.type);
-			const alertDetails = await eventalertssql.getAlert(req.body.subscription.id);
-			if(!alertDetails) return;
+			const userId = SlitherEventSub.broadcasterOf(req.body.subscription.condition, req.body.subscription.type)
+			const alertDetails = await eventalertssql.getAlert(req.body.subscription.id)
+			if(!alertDetails) return
 
 			// if the alert has at least one non-null displayable element, send the details to the websocket server
 			if(alertDetails.alert_text !== null || alertDetails.audio_file !== null || alertDetails.image_file !== null) {
@@ -109,15 +109,15 @@ router.post('/event', rawParser, verifyTwitchEventMessage, async (req, res) => {
 												alertText: alertDetails.alert_text,
 												audioVolume: alertDetails.audio_volume,
 												duration: alertDetails.duration }
-										};
+										}
 
-				ws.send(wsmsgobj);
+				ws.send(wsmsgobj)
 
 			}
 
 		}
 
-		return;
+		return
 	}
 	
 	/***************************SUBSCRIPTION REVOKED BY TWITCH******************************************************
@@ -134,235 +134,235 @@ router.post('/event', rawParser, verifyTwitchEventMessage, async (req, res) => {
 	* 		ACTION: Review Twitch docs and figure out how to change the code for the event handler and/or subscription creation
 	****************************************************************************************************************/
 	else if(messageType === 'revocation') {
-		res.sendStatus(204);
+		res.sendStatus(204)
 
-		console.log(`Subscription revoked by Twitch! Reason: ${req.body.subscription.status}`);
-		console.log(`Full message body: ${JSON.stringify(req.body)}`);
+		console.log(`Subscription revoked by Twitch! Reason: ${req.body.subscription.status}`)
+		console.log(`Full message body: ${JSON.stringify(req.body)}`)
 
-		eventsubclient.handleDisabledSubscription(req.body.subscription as eventsubtypes.TwitchEventNotification);
+		eventsubclient.handleDisabledSubscription(req.body.subscription as eventsubtypes.TwitchEventNotification)
 
-		return;
+		return
 	}
 
 	else {
-		res.sendStatus(204);
-		console.log(`Unknown message type received from Twitch: ${req.headers[messageType]}`);
+		res.sendStatus(204)
+		console.log(`Unknown message type received from Twitch: ${req.headers[messageType]}`)
 
-		return;
+		return
 	}
 
-});
+})
 
 // Serves a page that displays alerts for the user authenticated by paramToken. paramToken is a semi-public credential
 // which serves no other purpose than to serve these alerts and cannot be used externally to identify the user
-router.get('/alerts/:paramToken', async (req, res) => {
+slitherRouter.get('/alerts/:paramToken', async (req, res) => {
 
-	const alertsJwt = await slitherauth.verifyAlertsConnectionToken(req.params.paramToken);
+	const alertsJwt = await slitherauth.verifyAlertsConnectionToken(req.params.paramToken)
 
 	res.render("slither/alerts", { hostName: sslConfig.hostName,
-									connectionToken: alertsJwt });
+									connectionToken: alertsJwt })
 
-});
+})
 
 // Obtain the alerts token for the given user intended for use in an OBS browser source URL. This token is semi-public data.
-router.post('/alerts/token', jsonParser, async (req, res) => {
+slitherRouter.post('/alerts/token', jsonParser, async (req, res) => {
 
-	const userId = await slitherauth.verifySlitherToken(req.cookies?.access_token, 'access');
-	if(!userId) return res.status(401).json({error: `Invalid access token when requesting alerts token at POST /slither/alerts/token`});
+	const userId = await slitherauth.verifySlitherToken(req.cookies?.access_token, 'access')
+	if(!userId) return res.status(401).json({error: `Invalid access token when requesting alerts token at POST /slither/alerts/token`})
 
-	const alertsToken = await slithersql.getAlertsTokenForUser(userId);
-	if(!alertsToken) return res.status(500).json({error: `Could not obtain alerts token for given user at POT /slither/alerts/token`});
+	const alertsToken = await slithersql.getAlertsTokenForUser(userId)
+	if(!alertsToken) return res.status(500).json({error: `Could not obtain alerts token for given user at POT /slither/alerts/token`})
 	
-	return res.status(200).json({ alerts_token: alertsToken });
+	return res.status(200).json({ alerts_token: alertsToken })
 
-});
+})
 
-router.get('/alerts/media/:alertstoken/:filename', async (req, res) => {
+slitherRouter.get('/alerts/media/:alertstoken/:filename', async (req, res) => {
 
 	// Incoming filename references the hex charset filename stored in the user-specific media folder
-	const fileName: string = req.params['filename'] as string;
-	const userId = await slithersql.getUserIDForAlertsToken(req.params['alertstoken'] as string);
-	const friendlyFileName = await eventalertssql.getFriendlyFileName(fileName);
+	const fileName: string = req.params['filename'] as string
+	const userId = await slithersql.getUserIDForAlertsToken(req.params['alertstoken'] as string)
+	const friendlyFileName = await eventalertssql.getFriendlyFileName(fileName)
 
 	if(!friendlyFileName) {
-		return res.status(500).send('Oops. Could not find filename for requested media. Things are probably broken. :(');
+		return res.status(500).send('Oops. Could not find filename for requested media. Things are probably broken. :(')
 	}
 	
 	res.status(200).download(`${appConfig.appPath}/resources/alertmedia/${userId}/${fileName}`, 
 							  friendlyFileName,
 							  (err) => {
 		if(err) {
-			console.error(`Error sending media file ${fileName} in response to request at /media/:filename endpoint. Error: ${err}`);
-			res.status(404).end();
+			console.error(`Error sending media file ${fileName} in response to request at /media/:filename endpoint. Error: ${err}`)
+			res.status(404).end()
 		}
-	});
+	})
 
-});
+})
 
 // Primarily for serving media files to the home page for the alerts customization dashboard
-router.post('/alerts/media', jsonParser, authenticateSlitherUser, async (req: authtypes.SlitherAuthenticatedRequest, res) => {
+slitherRouter.post('/alerts/media', jsonParser, authenticateSlitherUser, async (req: authtypes.SlitherAuthenticatedRequest, res) => {
 
-	const alert = await eventalertssql.getAlert(req.body.subId);
-	if(!alert) return res.sendStatus(404);
+	const alert = await eventalertssql.getAlert(req.body.subId)
+	if(!alert) return res.sendStatus(404)
 
-	const subType = await eventsubsql.getSubById(alert.sub_id);
+	const subType = await eventsubsql.getSubById(alert.sub_id)
 	if(!subType) {
-		console.error('Sub exists with invalid type. Investigate.');
-		return res.sendStatus(500);
+		console.error('Sub exists with invalid type. Investigate.')
+		return res.sendStatus(500)
 	}
 
-	let imageFileBuffer = null;
-	let imageFileName = null;
-	let imageFileMime = null;
-	let audioFileBuffer = null;
-	let audioFileName = null;
-	let audioFileMime = null;
+	let imageFileBuffer = null
+	let imageFileName = null
+	let imageFileMime = null
+	let audioFileBuffer = null
+	let audioFileName = null
+	let audioFileMime = null
 
 	try {
 		if(req.body.getImage && alert.image_file) {
-			imageFileBuffer = await fs.promises.readFile(`${appConfig.appPath}/resources/alertmedia/${req.twitchId}/${alert.image_file}`);
-			imageFileName = alert.image_file_name ?? '';
+			imageFileBuffer = await fs.promises.readFile(`${appConfig.appPath}/resources/alertmedia/${req.twitchId}/${alert.image_file}`)
+			imageFileName = alert.image_file_name ?? ''
 			imageFileMime = mime.getType(imageFileName)
 		}
 		if(req.body.getAudio && alert.audio_file) {
-			audioFileBuffer = await fs.promises.readFile(`${appConfig.appPath}/resources/alertmedia/${req.twitchId}/${alert.audio_file}`);
-			audioFileName = alert.audio_file_name ?? '';
-			audioFileMime = mime.getType(audioFileName);
+			audioFileBuffer = await fs.promises.readFile(`${appConfig.appPath}/resources/alertmedia/${req.twitchId}/${alert.audio_file}`)
+			audioFileName = alert.audio_file_name ?? ''
+			audioFileMime = mime.getType(audioFileName)
 		}
 	} catch(e) {
-		console.error(`Probably asked for a file we don't have`);
-		console.log(`Alert returned from db: ${JSON.stringify(alert)}`);
-		return res.sendStatus(500);
+		console.error(`Probably asked for a file we don't have`)
+		console.log(`Alert returned from db: ${JSON.stringify(alert)}`)
+		return res.sendStatus(500)
 	}
 
 	return res.status(200).json({
 		imageBase64: imageFileBuffer?.toString('base64'), imageFileName: imageFileName, imageFileMime: imageFileMime,
 		audioBase64: audioFileBuffer?.toString('base64'), audioFileName: audioFileName, audioFileMime: audioFileMime
-	});
+	})
 
-});
+})
 
-router.get('/public/media/:filename', async (req, res) => {
+slitherRouter.get('/public/media/:filename', async (req, res) => {
 
 	try {
-		return res.status(200).header('Content-Type', 'image/x-icon').sendFile(`${appConfig.appPath}/public/media/${req.params['filename']}`);
+		return res.status(200).header('Content-Type', 'image/x-icon').sendFile(`${appConfig.appPath}/public/media/${req.params['filename']}`)
 	} catch (e) {
 		console.error(`Error handling /public/media/:filename endpoint: ${e}`)
-		return res.sendStatus(404);
+		return res.sendStatus(404)
 	}
 
-});
+})
 
-router.get('/favicon', async (_req, res) => {
+slitherRouter.get('/favicon', async (_req, res) => {
 
 	try {
-		return res.status(200).sendFile(`${appConfig.appPath}/public/media/favicon.ico`);
+		return res.status(200).sendFile(`${appConfig.appPath}/public/media/favicon.ico`)
 	} catch (e) {
-		return res.sendStatus(404);
+		return res.sendStatus(404)
 	}
 
-});
+})
 
-router.post('/alerts', authenticateSlitherUser, alertMediaUploadMiddleware, async (req: authtypes.SlitherAuthenticatedRequest, res) => {
+slitherRouter.post('/alerts', authenticateSlitherUser, alertMediaUploadMiddleware, async (req: authtypes.SlitherAuthenticatedRequest, res) => {
 
 	if(req.fileValidationError) {
-		return res.status(400).send('Invalid filename');
+		return res.status(400).send('Invalid filename')
 	}
 
-	const alertPostReqBody = req.body as alerttypes.AlertPostReqBody;
+	const alertPostReqBody = req.body as alerttypes.AlertPostReqBody
 
-	const files = req.files as { [fieldname: string]: Express.Multer.File[] };
-	let imageFile, imageFileName, audioFile, audioFileName = undefined;
+	const files = req.files as { [fieldname: string]: Express.Multer.File[] }
+	let imageFile, imageFileName, audioFile, audioFileName = undefined
 	if(files['imageBlob'] && files['imageBlob'][0]) {
-		const img = files['imageBlob'][0];
-		imageFile = img.filename;
-		imageFileName = img.originalname;
+		const img = files['imageBlob'][0]
+		imageFile = img.filename
+		imageFileName = img.originalname
 	}
 	if(files['audioBlob'] && files['audioBlob'][0]) {
-		const audio = files['audioBlob'][0];
-		audioFile = audio.filename;
-		audioFileName = audio.originalname;
+		const audio = files['audioBlob'][0]
+		audioFile = audio.filename
+		audioFileName = audio.originalname
 	}
 
-	const subId = alertPostReqBody.subscriptionId;
-	const updateData: alerttypes.AlertUpdateData = { };
-	const audioVolume = alertPostReqBody.audioVolume ? parseInt(alertPostReqBody.audioVolume) : undefined;
-	const duration = alertPostReqBody.alertDuration ? parseFloat(alertPostReqBody.alertDuration) : undefined;
-	if(audioVolume) updateData.audio_volume = audioVolume;
-	if(duration) updateData.duration = duration;
-	if(alertPostReqBody.alertText) updateData.alert_text = alertPostReqBody.alertText;
-	if(imageFile) updateData.image_file = imageFile;
-	if(imageFileName) updateData.image_file_name = imageFileName;
-	if(audioFile) updateData.audio_file = audioFile;
-	if(audioFileName) updateData.audio_file_name = audioFileName;
+	const subId = alertPostReqBody.subscriptionId
+	const updateData: alerttypes.AlertUpdateData = { }
+	const audioVolume = alertPostReqBody.audioVolume ? parseInt(alertPostReqBody.audioVolume) : undefined
+	const duration = alertPostReqBody.alertDuration ? parseFloat(alertPostReqBody.alertDuration) : undefined
+	if(audioVolume) updateData.audio_volume = audioVolume
+	if(duration) updateData.duration = duration
+	if(alertPostReqBody.alertText) updateData.alert_text = alertPostReqBody.alertText
+	if(imageFile) updateData.image_file = imageFile
+	if(imageFileName) updateData.image_file_name = imageFileName
+	if(audioFile) updateData.audio_file = audioFile
+	if(audioFileName) updateData.audio_file_name = audioFileName
 
 	// Get pre-update image and audio data filenames from the DB
-	const { image_file, audio_file } = (await eventalertssql.getAlert(subId)) || { audio_file: undefined, image_file: undefined };
+	const { image_file, audio_file } = (await eventalertssql.getAlert(subId)) || { audio_file: undefined, image_file: undefined }
 
-	await eventalertssql.updateAlert(subId, updateData);
+	await eventalertssql.updateAlert(subId, updateData)
 
 	// If both the new and old file names reference a file, we should delete the old one!
 	if(imageFile && image_file) {
 		try {
-			await fs.promises.unlink(`${appConfig.appPath}/resources/alertmedia/${req.twitchId}/${image_file}`);
+			await fs.promises.unlink(`${appConfig.appPath}/resources/alertmedia/${req.twitchId}/${image_file}`)
 		} catch(err) { 
-			console.error(`Could not delete old image file for subId ${subId}`); 
+			console.error(`Could not delete old image file for subId ${subId}`)
 		}
 	}
 	if(audioFile && audio_file) {
 		try {
-			await fs.promises.unlink(`${appConfig.appPath}/resources/alertmedia/${req.twitchId}/${audio_file}`);
+			await fs.promises.unlink(`${appConfig.appPath}/resources/alertmedia/${req.twitchId}/${audio_file}`)
 		} catch(err) { 
-			console.error(`Could not delete old audio file for subId ${subId}`); 
+			console.error(`Could not delete old audio file for subId ${subId}`)
 		}
 	}
 
-	res.sendStatus(204);
+	res.sendStatus(204)
 
-});
+})
 
 // Issues a refreshed Slither access token to the user via a secure browser cookie, or if the refresh token is invalid,
 // clear it from the requester's browser
-router.post('/auth/refresh', jsonParser, async (req, res) => {
+slitherRouter.post('/auth/refresh', jsonParser, async (req, res) => {
 
-	const refreshToken = req.cookies?.refresh_token;
-	if(!refreshToken) return res.status(401).json({error: `Refresh token not provided`});
+	const refreshToken = req.cookies?.refresh_token
+	if(!refreshToken) return res.status(401).json({error: `Refresh token not provided`})
 
-	const userId = await slitherauth.verifySlitherToken(refreshToken, 'refresh');
+	const userId = await slitherauth.verifySlitherToken(refreshToken, 'refresh')
 	if(!userId) {
 
-		res.clearCookie('refresh_token');
-		return res.status(401).json({error: `Session expired`});
+		res.clearCookie('refresh_token')
+		return res.status(401).json({error: `Session expired`})
 
 	}
 
-	const accessToken = await slitherauth.signSlitherToken(userId, 'access');
-	if(!accessToken) console.error(`attempt to sign access token using userId ${userId} failed in /auth/refresh`);
+	const accessToken = await slitherauth.signSlitherToken(userId, 'access')
+	if(!accessToken) console.error(`attempt to sign access token using userId ${userId} failed in /auth/refresh`)
 
-	slitherauth.addSlitherTokenCookie(res, accessToken, 'access');
+	slitherauth.addSlitherTokenCookie(res, accessToken, 'access')
 
-	return res.sendStatus(204);
+	return res.sendStatus(204)
 
-});
+})
 
 // User has opted to authorize Slither to use their data and now we need to create a State value
 // and redirect the user to Twitch's OAuth system to complete the process
-router.get('/auth/twitch', (_req, res) => {
+slitherRouter.get('/auth/twitch', (_req, res) => {
 
-	const state = crypto.randomBytes(32).toString('hex');
-	AUTH_STATES.add(state);
+	const state = crypto.randomBytes(32).toString('hex')
+	AUTH_STATES.add(state)
 
 	setTimeout(() => {
 
 		if(AUTH_STATES.has(state)) {
-			AUTH_STATES.delete(state);
+			AUTH_STATES.delete(state)
 		}
 		
-	}, 1000 * 60 * 10); // State is valid for 10 minutes. After that, remove it from the array so it cannot be used to authenticate.
+	}, 1000 * 60 * 10) // State is valid for 10 minutes. After that, remove it from the array so it cannot be used to authenticate.
 
-	let scopes = '';
-	for(let scope of SlitherEventSub.scopes) scopes += `${encodeURIComponent(scope)}+`;
-	scopes = scopes.substring(0, scopes.length-1);
+	let scopes = ''
+	for(let scope of SlitherEventSub.scopes) scopes += `${encodeURIComponent(scope)}+`
+	scopes = scopes.substring(0, scopes.length-1)
 
 	let twitchAuthParams: authtypes.TwitchAuthCodeRequest = {
 		client_id: twitchConfig.clientId,
@@ -370,116 +370,116 @@ router.get('/auth/twitch', (_req, res) => {
 		response_type: "code",
 		scope: scopes,
 		state: state
-	};
+	}
 
-	res.redirect(`https://id.twitch.tv/oauth2/authorize?client_id=${twitchAuthParams.client_id}&redirect_uri=${twitchAuthParams.redirect_uri}&response_type=${twitchAuthParams.response_type}&scope=${twitchAuthParams.scope}&state=${twitchAuthParams.state}`);
+	res.redirect(`https://id.twitch.tv/oauth2/authorize?client_id=${twitchAuthParams.client_id}&redirect_uri=${twitchAuthParams.redirect_uri}&response_type=${twitchAuthParams.response_type}&scope=${twitchAuthParams.scope}&state=${twitchAuthParams.state}`)
 
-});
+})
 
 // TODO: Bake this into the default route instead of having an /auth endpoint: If user logged in, redirect to home.
 // 		 If user not logged in, do auth.
 // Serves an auth page the asks the user to authorize Slither to access their Twitch data
-router.get('/auth', async (req, res) => {
+slitherRouter.get('/auth', async (req, res) => {
 
 	// If this returns a userID, the user is already logged in and should not be presented the auth view
 	if(await slitherauth.verifySlitherToken(req.cookies?.access_token, 'access')) {
-		return res.redirect('/slither/home');
+		return res.redirect('/slither/home')
 	}
 
-	const navItems: { label: string, href: string }[] = [{href: `/slither/logout`, label: 'Logout'}];
+	const navItems: { label: string, href: string }[] = [{href: `/slither/logout`, label: 'Logout'}]
 
 	res.render('slither/auth', {
 		data: {
 			navItems: JSON.stringify(navItems)
 		}
-	});
+	})
 
-});
+})
 
 // OAuth endpoint. When the user logs into Twitch and authorizes slitherbot to access their Twitch account resources
 // pursuant to using the link on auth.ejs (served by /slither/home), Twitch servers will hit /slither/oauth with an auth code.
 // We should use the fetch() API to send this auth code to Twitch's OAuth system after which we will receive the
 // User Access Token in the body of a response. Insert or update the token into the database to allow the user
 // to use this app's features. Then we rediret the user to SlitherBot's home page.
-router.get('/oauth', async (req, res) => {
+slitherRouter.get('/oauth', async (req, res) => {
 
 	if(typeof req.query['state'] !== 'string' || !AUTH_STATES.has(req.query['state'])) {
 		// TODO: Elevate error as a security risk
-		console.log(`Received an auth code with an invalid or already used state value: ${req.query['state']}. Rejecting request.`);
-		return res.sendStatus(400);
+		console.log(`Received an auth code with an invalid or already used state value: ${req.query['state']}. Rejecting request.`)
+		return res.sendStatus(400)
 	}
-	AUTH_STATES.delete(req.query['state']);
+	AUTH_STATES.delete(req.query['state'])
 
 	if(authtypes.isTwitchAuthError(req.query)) {
-		console.log(`OAuth Error received from Twitch: ${JSON.stringify(req.query)}`);
-		res.status(302);
-		res.location(`/slither/home`);
-		return res.end();
+		console.log(`OAuth Error received from Twitch: ${JSON.stringify(req.query)}`)
+		res.status(302)
+		res.location(`/slither/home`)
+		return res.end()
 	}
 
 	if(!authtypes.isTwitchAuthCode(req.query)) {
-		console.log(`Received a call to GET /slither/oauth that was neither an error nor an auth code. Query: ${JSON.stringify(req.query)}`);
-		return res.sendStatus(400);
+		console.log(`Received a call to GET /slither/oauth that was neither an error nor an auth code. Query: ${JSON.stringify(req.query)}`)
+		return res.sendStatus(400)
 	}
 
 	// We have received an Authorization Code from Twitch that we can use to obtain a User Access Token for a user wanting to use
 	// SlitherBot. We can send our response to Twitch. POST the auth code to https://id.twitch.tv/oauth2/token with query params:
 	// { client_id, client_secret, code, grant_type, redirect_uri }
-	const twitchTokenData = await twitchauth.fetchUserAccessToken(req.query.code as string);
-    const obtainmentTimestamp = Date.now();
+	const twitchTokenData = await twitchauth.fetchUserAccessToken(req.query.code as string)
+    const obtainmentTimestamp = Date.now()
 
 	// Immediately validate the access token to get the userID from Twitch
-	const twitchUserID = await twitchauth.validateUserAccessToken(twitchTokenData.access_token);
-	if(!twitchUserID) return res.sendStatus(500);
+	const twitchUserID = await twitchauth.validateUserAccessToken(twitchTokenData.access_token)
+	if(!twitchUserID) return res.sendStatus(500)
 
 	// Store Twitch access tokens in the database. This function will print a log message to the console in case of a DB error.
 	// Also if we already have an old user access token, be a good client and send a revocation request to Twitch
 	// We have already received and validated the access tokens as part of the OAuth flow so in the event of an error, keep going.
-	await twitchauth.registerTwitchUser(twitchTokenData, twitchUserID, obtainmentTimestamp);
+	await twitchauth.registerTwitchUser(twitchTokenData, twitchUserID, obtainmentTimestamp)
 
 	// Now register the user with Slither. If the user's twitch ID is already mapped to an alerts token, treat this as a simple login
 	// and move on to issuing cookies
-	if((await slitherauth.registerSlitherUser(twitchUserID)) === null) return res.sendStatus(500);
+	if((await slitherauth.registerSlitherUser(twitchUserID)) === null) return res.sendStatus(500)
 
 	// To this point, we have acquired Twitch tokens for the given user. Sign our Slither authentication tokens and issue cookies.
-	const signedRefreshToken = await slitherauth.signSlitherToken(twitchUserID, 'refresh');
-	const signedAccessToken = await slitherauth.signSlitherToken(twitchUserID, 'access');
-	slitherauth.addSlitherTokenCookie(res, signedRefreshToken, 'refresh');
-	slitherauth.addSlitherTokenCookie(res, signedAccessToken, 'access');
+	const signedRefreshToken = await slitherauth.signSlitherToken(twitchUserID, 'refresh')
+	const signedAccessToken = await slitherauth.signSlitherToken(twitchUserID, 'access')
+	slitherauth.addSlitherTokenCookie(res, signedRefreshToken, 'refresh')
+	slitherauth.addSlitherTokenCookie(res, signedAccessToken, 'access')
 
 	// We have now sucessfully logged in the user. If we set the require_login flag in the DB, unset it now.
-	await slithersql.setLoginRequiredValue(twitchUserID, false);
+	await slithersql.setLoginRequiredValue(twitchUserID, false)
 
-	return res.redirect(`/slither/home`);
-});
+	return res.redirect(`/slither/home`)
+})
 
 // Protected route. Redirect to /slither/auth if the browser cookies do not contain a valid authentication token.
-router.get('/home', authenticateSlitherUser, async (req: authtypes.SlitherAuthenticatedRequest, res) => {
+slitherRouter.get('/home', authenticateSlitherUser, async (req: authtypes.SlitherAuthenticatedRequest, res) => {
 
 	const navItems: { label: string, href: string }[] = [
 		{href: `/slither/demo`, label: 'Demo'},
 		{href: `/slither/logout`, label: 'Logout'}
-	];
-	const alertsToken = await slithersql.getAlertsTokenForUser(req.twitchId);
-	const alertsUrl = alertsToken ? `https://${sslConfig.hostName}/slither/alerts/${alertsToken}` : '';
+	]
+	const alertsToken = await slithersql.getAlertsTokenForUser(req.twitchId)
+	const alertsUrl = alertsToken ? `https://${sslConfig.hostName}/slither/alerts/${alertsToken}` : ''
 
-	const alertsArr = await eventalertssql.getUserAlerts(req.twitchId);
+	const alertsArr = await eventalertssql.getUserAlerts(req.twitchId)
 
 	// Build the data to send to the browser upon page load. This will be a nested Map. 
 	// First level: <EventAlertCategory, Map>
 	// Second level: <SubscriptionType, EventAlertDetails>
 	const alertsMap = (() => {
 		// Instantiate the first level of the map
-		const rtnMap: Map<alerttypes.EventAlertCategory, Map<string, Omit<alerttypes.EventAlertDetails, 'imageFile' | 'audioFile' | 'category' | 'subscriptionType'>>> = new Map();
+		const rtnMap: Map<alerttypes.EventAlertCategory, Map<string, Omit<alerttypes.EventAlertDetails, 'imageFile' | 'audioFile' | 'category' | 'subscriptionType'>>> = new Map()
 		// Iterate through all of the current user's alerts and assign each a place in the data structure
 		alertsArr.forEach((alert) => {
 			// Establish the category if necessary
-			if(!rtnMap.has(alert.category)) { rtnMap.set(alert.category, new Map()); }
+			if(!rtnMap.has(alert.category)) { rtnMap.set(alert.category, new Map()) }
 			
 			// Get the Subscription Type and establish its details in the second level map under the current category
 			// This regex removes all '.' and ':' characters from subscriptionType before passing to the frontend
-			const alertTypePretty = alert.subscriptionType.replace(/[\.:]/g, '').toLowerCase();
-			const alertsForCategory = rtnMap.get(alert.category);
+			const alertTypePretty = alert.subscriptionType.replace(/[\.:]/g, '').toLowerCase()
+			const alertsForCategory = rtnMap.get(alert.category)
 			if(!alertsForCategory?.has(alertTypePretty)) { alertsForCategory?.set(alertTypePretty, {
 
 				// Set up the alert details from the database inside the second level map
@@ -491,14 +491,14 @@ router.get('/home', authenticateSlitherUser, async (req: authtypes.SlitherAuthen
 				audioVolume: alert.audioVolume,
 				alertDescription: alert.alertDescription
 
-				});
+				})
 			}
-		});
-		return rtnMap;
-	})();
+		})
+		return rtnMap
+	})()
 
-	const defaultCategory: alerttypes.EventAlertCategory = 'Follows';
-	const defaultAlertType: eventsubtypes.SubscriptionType = 'channel.follow';
+	const defaultCategory: alerttypes.EventAlertCategory = 'Follows'
+	const defaultAlertType: eventsubtypes.SubscriptionType = 'channel.follow'
 
 	res.render(`slither/home`, { 
 		data: {
@@ -508,13 +508,13 @@ router.get('/home', authenticateSlitherUser, async (req: authtypes.SlitherAuthen
 			defaultCategory: defaultCategory,
 			defaultAlertType: defaultAlertType.replace(/[.:]/, '').toLowerCase()
 		}
-	});
+	})
 	
-});
+})
 
-router.get('/demo', (_req, res) => {
+slitherRouter.get('/demo', (_req, res) => {
 
-	res.statusCode = 200;
+	res.statusCode = 200
 	res.render('slither/demo', {
 		data: {
 			alertsUrl: 'https://dari.monster/slither/alerts/yourURL',
@@ -525,33 +525,33 @@ router.get('/demo', (_req, res) => {
 			defaultCategory: 'Follows',
 			defaultAlertType: 'channel.follow'
 		}
-	});
+	})
 
-});
+})
 
-router.get('/logout', (_req, res) => {
+slitherRouter.get('/logout', (_req, res) => {
 
-	res.clearCookie('access_token');
-	res.clearCookie('refresh_token');
-	res.redirect('/slither/home');
+	res.clearCookie('access_token')
+	res.clearCookie('refresh_token')
+	res.redirect('/slither/home')
 
-});
+})
 
 // TODO: For the base route, if Slither can authenticate the user, redirect to home. Otherwise nudge them to authenticate
 // with Twitch
 // GET /slither simply redirects the user to /slither/home
-router.get('/', (_req, res) => {
+slitherRouter.get('/', (_req, res) => {
 
-	return res.redirect(`/slither/home`);
+	return res.redirect(`/slither/home`)
 
-});
+})
 
 // GET /slither/:routeName that is not already handled redirects to /slither/home instead, with a tokenType of null
-router.get('/:badroute', (req, res) => {
+slitherRouter.get('/:badroute', (req, res) => {
 
-	console.log(`Got GET request to /slither/${req.params.badroute}. Redirecting to /slither/home`);
-	res.redirect(`/slither/home`);
+	console.log(`Got GET request to /slither/${req.params.badroute}. Redirecting to /slither/home`)
+	res.redirect(`/slither/home`)
 
-});
+})
 
-export default { router };
+export default slitherRouter
