@@ -1,0 +1,2 @@
+APP_PATH="/opt/slitherbot"
+SECURE_ENV_PATH="/etc/slither/.env.secure"

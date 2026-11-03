@@ -9,6 +9,7 @@ export const db = new Kysely<DB>({
         pool: createPool({
             database: mysqlConfig.database,
             host: mysqlConfig.host,
+            port: mysqlConfig.port,
             user: mysqlConfig.user,
             password: mysqlConfig.password,
             connectionLimit: 10
