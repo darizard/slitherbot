@@ -61,33 +61,33 @@ slitherRouter.post('/event', rawParser, verifyMessage, parseJson, async (req, re
 	switch(messageType) {
 		case 'webhook_callback_verification':
 			await esclient.handleChallenge(req.body, res)
-			return
+			break
 
 		case 'notification':
 			console.log("notification received")
 			await esclient.handleEvent(req, res, ws)
-			return
+			break
 
 		case 'revocation':
 			esclient.handleRevocation(req, res)
-			return
+			break
 
 		default:
 			esclient.handleUnexpectedMessage(req, res, messageType)
-			return
+			break
 
 	}
 	
 })
 
 // Serves a page that displays alerts for the user authenticated by paramToken. paramToken is a semi-public credential
-// which serves no other purpose than to serve these alerts and cannot be used externally to identify the user
+// which serves no purpose other than to serve the user-configured alerts and cannot be used externally to identify the user
 slitherRouter.get('/alerts/:paramToken', async (req, res) => {
 
-	const alertsJwt = await slitherauth.verifyAlertsConnectionToken(req.params.paramToken)
+	const token = await slitherauth.verifyAlertsConnectionToken(req.params.paramToken)
 
 	res.render("slither/alerts", { hostName: sslConfig.hostName,
-									connectionToken: alertsJwt })
+									connectionToken: token })
 
 })
 
