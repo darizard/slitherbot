@@ -25,7 +25,7 @@ import { verifyMessage, parseJson } from '../middleware/twitchevents.js'
 import esclient from '../services/eventsubclient.js'
 import slitherauth from '../services/slitherauth.js'
 import twitchauth from '../services/twitchauth.js'
-import { SlitherEventSub } from '../classes/eventsub.js'
+import { SlitherEventSub as EvtSub } from '../classes/eventsub.js'
 
 // Direct DB queries
 import eventalertssql from '../db/queries/eventalerts.js'
@@ -56,7 +56,6 @@ slitherRouter.post('/event', rawParser, verifyMessage, parseJson, async (req, re
 
 	// TODO: Zod
 	const messageType = req.headers['twitch-eventsub-message-type'] as string
-	console.log(`messageType: ${messageType}`)
 
 	switch(messageType) {
 		case 'webhook_callback_verification':
@@ -64,7 +63,6 @@ slitherRouter.post('/event', rawParser, verifyMessage, parseJson, async (req, re
 			break
 
 		case 'notification':
-			console.log("notification received")
 			await esclient.handleEvent(req, res, ws)
 			break
 
@@ -80,11 +78,11 @@ slitherRouter.post('/event', rawParser, verifyMessage, parseJson, async (req, re
 	
 })
 
-// Serves a page that displays alerts for the user authenticated by paramToken. paramToken is a semi-public credential
+// Serves a page that displays alerts for the user authenticated by alertsToken. alertsToken is a semi-public credential
 // which serves no purpose other than to serve the user-configured alerts and cannot be used externally to identify the user
-slitherRouter.get('/alerts/:paramToken', async (req, res) => {
+slitherRouter.get('/alerts/:alertsToken', async (req, res) => {
 
-	const token = await slitherauth.verifyAlertsConnectionToken(req.params.paramToken)
+	const token = await slitherauth.verifyAlertsConnectionToken(req.params.alertsToken)
 
 	res.render("slither/alerts", { hostName: sslConfig.hostName,
 									connectionToken: token })
@@ -95,10 +93,14 @@ slitherRouter.get('/alerts/:paramToken', async (req, res) => {
 slitherRouter.post('/alerts/token', jsonParser, async (req, res) => {
 
 	const userId = await slitherauth.verifySlitherToken(req.cookies?.access_token, 'access')
-	if(!userId) return res.status(401).json({error: `Invalid access token when requesting alerts token at POST /slither/alerts/token`})
+	if(!userId) {
+		// TODO: Big logging/error visibility pass
+		console.error(`Request made to POST /slither/alerts/token with an invalid access token: ${req.cookies?.access_token}`)
+		return res.status(401)
+	}
 
-	const alertsToken = await slithersql.getAlertsTokenForUser(userId)
-	if(!alertsToken) return res.status(500).json({error: `Could not obtain alerts token for given user at POT /slither/alerts/token`})
+	const alertsToken = await slithersql.getAlertsTokenForUser(userId) 
+	if(!alertsToken) return res.status(500).json({error: `Could not obtain alerts token for given user at POST /slither/alerts/token`})
 	
 	return res.status(200).json({ alerts_token: alertsToken })
 
@@ -287,9 +289,7 @@ slitherRouter.get('/auth/twitch', (_req, res) => {
 		
 	}, 1000 * 60 * 10) // State is valid for 10 minutes. After that, remove it from the array so it cannot be used to authenticate.
 
-	let scopes = ''
-	for(let scope of SlitherEventSub.scopes) scopes += `${encodeURIComponent(scope)}+`
-	scopes = scopes.substring(0, scopes.length-1)
+	const scopes = EvtSub.getURIEncodedScopes()
 
 	let twitchAuthParams: authtypes.TwitchAuthCodeRequest = {
 		client_id: twitchConfig.clientId,

@@ -15,7 +15,7 @@
 import express from 'express'
 
 // internal app imports
-import { getValidatedSlitherAppToken } from './twitchauth.js'
+import { getValidatedAppAccessToken } from './twitchauth.js'
 import { twitchConfig } from '../config.js'
 import eventsubtypes from '../types/eventsubtypes.js'
 
@@ -26,7 +26,7 @@ import eventalertssql from '../db/queries/eventalerts.js'
 
 // internal classes
 import { SlitherControllerClientWebSocket } from '../classes/slitherws.js'
-import { SlitherEventSub } from '../classes/eventsub.js'
+import { SlitherEventSub as EvtSub } from '../classes/eventsub.js'
 
 // types
 import type slitherwstypes from '../types/slitherwstypes.js'
@@ -48,7 +48,7 @@ export * as default from './eventsubclient.js'
 export async function initialize(): Promise<void> {
 
 	// Validates App Access Token in DB, then obtains and immediately validates a new one if necessary
-	const appToken = await getValidatedSlitherAppToken()
+	const appToken = await getValidatedAppAccessToken()
 	if(!appToken) {
 		console.error(`Failed to obtain an app access token on initial connection. Unable to manage EventSub subscriptions.`)
 		return
@@ -84,7 +84,6 @@ export async function initialize(): Promise<void> {
 	// every subscription in the DB with Twitch's sub id. Afterward, for all required subscriptions for active users
 	// which still have an id of NULL, subscribe to the related events via the Twitch API and update the sub IDs in the DB
 	
-	
 	// 1. Loop through all of the twitch subs and assign the subscription ID to each {user, subType} value via a map.
 	// App-level sub types will map the subscription ID to the type only
 	const dbSubsToUpsert = new Set<eventsubtypes.SlitherEventSubscription>()
@@ -98,8 +97,8 @@ export async function initialize(): Promise<void> {
 			return
 		} 
 		// Set channel ID according to sub type
-		else if(SlitherEventSub.isAppSubType(twitchSub.type)) { channelId = '.' } 
-		else if(SlitherEventSub.isUserSubType(twitchSub.type)) { channelId = SlitherEventSub.broadcasterOf(twitchSub.condition, twitchSub.type) }
+		else if(EvtSub.isAppSubType(twitchSub.type)) { channelId = '.' } 
+		else if(EvtSub.isUserSubType(twitchSub.type)) { channelId = EvtSub.broadcasterOf(twitchSub.condition, twitchSub.type) }
 		// Handle [disabled/unsupported] sub and return if the sub type is unsupported
 		else {
 
@@ -123,7 +122,7 @@ export async function initialize(): Promise<void> {
 				channel_id: channelId,
 				id: twitchSub.id,
 				type: twitchSub.type,
-				version: SlitherEventSub.versionOf(twitchSub.type)
+				version: EvtSub.versionOf(twitchSub.type)
 			})
 			
 		}
@@ -135,7 +134,7 @@ export async function initialize(): Promise<void> {
 	// For any required subs for active users that are still missing from the database, subscribe to the event.
 	// The database update will be handled by the /slither/event endpoint after a Twitch webhook callback 
 	// verification request.
-	const requiredSubs: Set<eventsubtypes.SlitherEventSubscription> = SlitherEventSub.getAllRequiredSubscriptions(activeUserIds)
+	const requiredSubs: Set<eventsubtypes.SlitherEventSubscription> = EvtSub.getAllRequiredSubscriptions(activeUserIds)
 	const registeredSubs: Set<eventsubtypes.SlitherEventSubscription> = await eventsubsql.getSubscriptionsForUsers(activeUserIds.concat(['.']))
 	
 	// Find the Set difference of Set<{ requiredSubs.channel_id, requiredSubs.type }> - Set<{ registeredSubs.channel_id, registeredSubs.type }>
@@ -159,18 +158,17 @@ export async function handleChallenge(requestBody: any, res: express.Response): 
 			   .status(200)
 			   .send(requestBody.challenge)
 
-			await registerNewEventSub(requestBody)
+			await registerEventSub(requestBody)
 
 }
 
 export async function handleEvent(req: express.Request, res: express.Response, ws: SlitherControllerClientWebSocket): Promise<void> {
 		// respond right away with 204 No Content
 		res.sendStatus(204)
-		console.log("response sent")
-			// If he event type is one that is tied to an alert...
-			if(SlitherEventSub.alertSubscriptionTypes.has(req.body.subscription.type)) {
+			// If the event type is one that is tied to an alert...
+			if(EvtSub.firesAlert(req.body.subscription.type)) {
 	
-				const userId = SlitherEventSub.broadcasterOf(req.body.subscription.condition, req.body.subscription.type)
+				const userId = EvtSub.broadcasterOf(req.body.subscription.condition, req.body.subscription.type)
 				const alertDetails = await eventalertssql.getAlert(req.body.subscription.id)
 				if(!alertDetails) return
 	
@@ -186,12 +184,14 @@ export async function handleEvent(req: express.Request, res: express.Response, w
 													audioVolume: alertDetails.audio_volume,
 													duration: alertDetails.duration }
 											}
-					console.log("sending message over websocket")
 					ws.send(wsmsgobj)
 	
 				}
 	
 			}
+
+			// TODO: Support other event types such as: user granted or revoked access to their account
+			// or user updated their account info such as username
 }
 
 export async function handleRevocation(req: express.Request, res: express.Response): Promise<void> {
@@ -226,21 +226,98 @@ export async function handleUnexpectedMessage(req: express.Request, res: express
 
 }
 
-async function registerNewEventSub(requestBody: eventsubtypes.WebhookCallbackChallengeRequest): Promise<void> {
+// Subscribe to User event if channelId is provided, otherwise subscribe to App event.
+export async function subToEvent(eventType: eventsubtypes.SubscriptionType, channelId: string): Promise<string | undefined> {
+
+	const appToken = await getValidatedAppAccessToken()
+	const reqHeaders = { 			
+			'Authorization': `Bearer ${appToken}`,
+			'Client-Id': twitchConfig.clientId,
+			'Content-Type': 'application/json'
+	}
+
+	let reqBody: eventsubtypes.CreateSubscriptionRequestBody
+	if(!EvtSub.isAppSubType(eventType) &&
+	   !EvtSub.isUserSubType(eventType)) {
+
+		console.error(`Cannot subscribe to unsupported event type: ${eventType}`)
+		return undefined
+
+	}
+
+	reqBody = {
+
+		type: eventType,
+		version: EvtSub.versionOf(eventType),
+		condition: EvtSub.conditionOf(eventType, channelId),
+		transport: EvtSub.getSubCreationTransport()
+
+	}
+
+	return await fetch(`https://api.twitch.tv/helix/eventsub/subscriptions`, {
+		method: 'POST',
+		headers: reqHeaders,
+		body: JSON.stringify(reqBody)
+	}).then(async (res) => {
+
+		const subscribeResponse = await res.json()
+		if(res.ok) return subscribeResponse.data.id
+		if(res.status === 409) {
+			// TODO: Hit the Twitch API to find the id of the related subscription and register the subscription in the database
+			console.error(`Already subscribed to event type ${eventType} for channel id ${channelId}. 409 response received from Twitch.`)
+			return undefined
+		}
+		// TODO: Elevate this error. We should never have a problem subscribing to an event. Probably we tried to subscribe
+		// to an event that our app does not have the required scope for, and we should fix that ASAP
+		console.error(`Subscribing to event of type ${eventType} failed. Response object: ${JSON.stringify(subscribeResponse)}`)
+		return undefined
+
+	})
+
+}
+
+export async function unsubFromEvent(subscription: eventsubtypes.TwitchEventNotification): Promise<boolean> {
+
+	const appToken = await getValidatedAppAccessToken()
+
+	return await fetch(`https://api.twitch.tv/helix/eventsub/subscriptions?id=${subscription.id}`, { method: 'DELETE',
+																									 headers: {
+																										Authorization: `Bearer ${appToken}`,
+																										'Client-Id': twitchConfig.clientId
+																									 }
+																							})
+	.then(async (res) => {
+		
+		// TODO: Elevate error. Something is wrong if we have a subscription ID we can't delete
+		if(!res.ok) {
+			console.error(	`Unsuccessful deletion of subscription type ${subscription.type}, `,
+						  	`authorizer object: ${JSON.stringify(subscription.condition)} `,
+						  	`error code ${res.status}`)
+		} else {
+			console.log(`Successfully deleted subscription id ${subscription.id}`)
+		}
+
+		return res.ok
+
+	})
+
+}
+
+async function registerEventSub(requestBody: eventsubtypes.WebhookCallbackChallengeRequest): Promise<void> {
 	
-	if(SlitherEventSub.isAppSubType(requestBody.subscription.type)) {
+	if(EvtSub.isAppSubType(requestBody.subscription.type)) {
 		const dbSub = {
 			channel_id: '.',
 			id: requestBody.subscription.id,
 			type: requestBody.subscription.type,
-			version: SlitherEventSub.versionOf(requestBody.subscription.type)
+			version: EvtSub.versionOf(requestBody.subscription.type)
 		}
 
 		await eventsubsql.upsertEventSub(dbSub)
 
 	// All other events Slither currently subscribes to use a User Access Token
-	} else if(SlitherEventSub.isUserSubType(requestBody.subscription.type)) {
-		const twitchId = SlitherEventSub.broadcasterOf(requestBody.subscription.condition, requestBody.subscription.type)
+	} else if(EvtSub.isUserSubType(requestBody.subscription.type)) {
+		const twitchId = EvtSub.broadcasterOf(requestBody.subscription.condition, requestBody.subscription.type)
 
 		if(!twitchId) {
 			console.error(`Error registering Event Subscription: Could not retrieve twitch ID from object condition.`)
@@ -251,7 +328,7 @@ async function registerNewEventSub(requestBody: eventsubtypes.WebhookCallbackCha
 			id: requestBody.subscription.id,
 			channel_id: twitchId,
 			type: requestBody.subscription.type,
-			version: SlitherEventSub.versionOf(requestBody.subscription.type)
+			version: EvtSub.versionOf(requestBody.subscription.type)
 		}
 
 		await eventsubsql.upsertEventSub(dbSub)
@@ -277,7 +354,7 @@ async function handleDisabledSub(subscription: eventsubtypes.TwitchEventNotifica
 
 async function fetchAllSubs(): Promise<Set<eventsubtypes.TwitchEventNotification> | undefined> {
 
-	const appToken = await getValidatedSlitherAppToken()
+	const appToken = await getValidatedAppAccessToken()
 
 	// A set containing all of the Subscription data objects Twitch has for Slither's app token
 	const subsFromTwitch = await fetch(`https://api.twitch.tv/helix/eventsub/subscriptions`, { method: 'GET',
@@ -296,80 +373,4 @@ async function fetchAllSubs(): Promise<Set<eventsubtypes.TwitchEventNotification
 	})
 
 	return subsFromTwitch
-}
-
-// Subscribe to User event if channelId is provided, otherwise subscribe to App event.
-export async function subToEvent(eventType: eventsubtypes.SubscriptionType, channelId: string): Promise<string | undefined> {
-
-	const appToken = await getValidatedSlitherAppToken()
-	const reqHeaders = { 			
-			'Authorization': `Bearer ${appToken}`,
-			'Client-Id': twitchConfig.clientId,
-			'Content-Type': 'application/json'
-	}
-
-	let reqBody: eventsubtypes.CreateSubscriptionRequestBody
-	if(!SlitherEventSub.isAppSubType(eventType) &&
-	   !SlitherEventSub.isUserSubType(eventType)) {
-
-		console.error(`Cannot subscribe to unsupported event type: ${eventType}`)
-		return undefined
-
-	}
-
-	reqBody = {
-
-		type: eventType,
-		version: SlitherEventSub.versionOf(eventType),
-		condition: SlitherEventSub.conditionOf(eventType, channelId),
-		transport: SlitherEventSub.subscriptionCreationTransport
-
-	}
-
-	return await fetch(`https://api.twitch.tv/helix/eventsub/subscriptions`, {
-		method: 'POST',
-		headers: reqHeaders,
-		body: JSON.stringify(reqBody)
-	}).then(async (res) => {
-
-		const subscribeResponse = await res.json()
-		if(res.ok) return subscribeResponse.data.id
-		if(res.status === 409) {
-			// TODO: Hit the Twitch API to find the id of the related subscription and register the subscription in the database
-			console.error(`Already subscribed to event type ${eventType} for channel id ${channelId}. 409 response received from Twitch.`)
-			return undefined
-		}
-		// TODO: Elevate this error. We should never have a problem subscribing to an event
-		console.error(`Subscribing to event of type ${eventType} failed. Response object: ${JSON.stringify(subscribeResponse)}`)
-		return undefined
-
-	})
-
-}
-
-async function unsubFromEvent(subscription: eventsubtypes.TwitchEventNotification): Promise<boolean> {
-
-	const appToken = await getValidatedSlitherAppToken()
-
-	return await fetch(`https://api.twitch.tv/helix/eventsub/subscriptions?id=${subscription.id}`, { method: 'DELETE',
-																									 headers: {
-																										Authorization: `Bearer ${appToken}`,
-																										'Client-Id': twitchConfig.clientId
-																									 }
-																							})
-	.then(async (res) => {
-		
-		// TODO: Elevate error. Something is wrong if we have a subscription ID we can't delete
-		if(!res.ok) {
-			console.error(	`Unsuccessful deletion of subscription type ${subscription.type}, `,
-						  	`authorizer object: ${JSON.stringify(subscription.condition)} `,
-						  	`error code ${res.status}`)
-		} else {
-			console.log(`Successfully deleted subscription id ${subscription.id}`)
-		}
-
-		return res.ok
-
-	})
-
 }
