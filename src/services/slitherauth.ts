@@ -166,7 +166,7 @@ export function addSlitherTokenCookie(res: Response, token: string | undefined, 
 
 // If user found for the provided alerts token in the 'Token' URL query parameter, returns a signed JWT with payload
 // {userId = SlitherIDs.twitch_id, tokenType = 'alerts'}
-export async function verifyAlertsConnectionToken(paramToken: string): Promise<string | undefined> {
+export async function verifyAlertsToken(paramToken: string): Promise<string | undefined> {
 
     const user_id = await slithersql.getUserIDForAlertsToken(paramToken);
     if(!user_id) return;

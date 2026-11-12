@@ -8,7 +8,7 @@ import { appConfig, sslConfig } from '../config.js'
 
 // Types
 import alerttypes from '../types/alerttypes.js'
-import authtypes from '../types/authtypes.js'
+import { SlitherAuthenticatedRequest } from '../types/authtypes.js'
 
 // Express Middleware
 import { authenticateSlitherUser } from '../middleware/slitherauth.js'
@@ -20,7 +20,7 @@ import slithersql from '../db/queries/slitherauth.js'
 import eventalertssql from '../db/queries/eventalerts.js'
 
 // Business logic
-import slitherauth from '../services/slitherauth.js'
+import { verifyAlertsToken } from '../services/slitherauth.js'
 
 const jsonParser = bodyParser.json()
 const alertsRouter = express.Router()
@@ -29,7 +29,7 @@ const alertsRouter = express.Router()
 // which serves no purpose other than to serve the user-configured alerts and cannot be used externally to identify the user
 alertsRouter.get('/:alertsToken', async (req, res) => {
 
-    const token = await slitherauth.verifyAlertsConnectionToken(req.params.alertsToken)
+    const token = await verifyAlertsToken(req.params.alertsToken)
 
     res.render("slither/alerts", { hostName: sslConfig.hostName,
                                     connectionToken: token })
@@ -37,30 +37,32 @@ alertsRouter.get('/:alertsToken', async (req, res) => {
 })
 
 // Obtain the alerts token for the given user intended for use in an OBS browser source URL. This token is semi-public data.
-alertsRouter.post('/token', jsonParser, async (req, res) => {
+alertsRouter.post('/token', jsonParser, authenticateSlitherUser, async (req: SlitherAuthenticatedRequest, res) => {
 
-    const userId = await slitherauth.verifySlitherToken(req.cookies?.access_token, 'access')
-    if(!userId) {
+    const twitchId = req.twitchId
+    if(!twitchId) {
         // TODO: Big logging/error visibility pass
-        console.error(`Request made to POST /slither/alerts/token with an invalid access token: ${req.cookies?.access_token}`)
-        return res.status(401)
+        console.error(`Request made to POST /slither/alerts/token with an invalid access token: ${req.cookies?.['access_token']}`)
+        return res.sendStatus(401)
     }
 
-    const alertsToken = await slithersql.getAlertsTokenForUser(userId) 
-    if(!alertsToken) return res.status(500).json({error: `Could not obtain alerts token for given user at POST /slither/alerts/token`})
+    const alertsToken = await slithersql.getAlertsTokenForUser(twitchId) 
+    if(!alertsToken) return res.status(500).json({error: `Could not obtain alerts token for given user at POST /slither/alerts/token`}).send()
     
-    return res.status(200).json({ alerts_token: alertsToken })
+    return res.status(200).json({ alerts_token: alertsToken }).send()
 
 })
 
 alertsRouter.get('/media/:alertstoken/:filename', async (req, res) => {
 
     // Incoming filename references the hex charset filename stored in the user-specific media folder
-    const fileName: string = req.params['filename'] as string
-    const userId = await slithersql.getUserIDForAlertsToken(req.params['alertstoken'] as string)
+    const fileName = req.params['filename'] as string
+    const alertsToken = req.params['alertstoken'] as string
+    const userId = await slithersql.getUserIDForAlertsToken(alertsToken)
     const friendlyFileName = await eventalertssql.getFriendlyFileName(fileName)
 
     if(!friendlyFileName) {
+        console.error(`Error finding filename for request received at /slither/media/${alertsToken}/${fileName}`)
         return res.status(500).send('Oops. Could not find filename for requested media. Things are probably broken. :(')
     }
     
@@ -69,14 +71,14 @@ alertsRouter.get('/media/:alertstoken/:filename', async (req, res) => {
                               (err) => {
         if(err) {
             console.error(`Error sending media file ${fileName} in response to request at /media/:filename endpoint. Error: ${err}`)
-            res.status(404).end()
+            res.sendStatus(404)
         }
     })
 
 })
 
 // Primarily for serving media files to the home page for the alerts customization dashboard
-alertsRouter.post('/media', jsonParser, authenticateSlitherUser, async (req: authtypes.SlitherAuthenticatedRequest, res) => {
+alertsRouter.post('/media', jsonParser, authenticateSlitherUser, async (req: SlitherAuthenticatedRequest, res) => {
 
     const alert = await eventalertssql.getAlert(req.body.subId)
     if(!alert) return res.sendStatus(404)
@@ -118,7 +120,7 @@ alertsRouter.post('/media', jsonParser, authenticateSlitherUser, async (req: aut
 
 })
 
-alertsRouter.post('/', authenticateSlitherUser, uploadAlertMedia, async (req: authtypes.SlitherAuthenticatedRequest, res) => {
+alertsRouter.post('/', authenticateSlitherUser, uploadAlertMedia, async (req: SlitherAuthenticatedRequest, res) => {
 
     if(req.fileValidationError) {
         return res.status(400).send('Invalid filename')
