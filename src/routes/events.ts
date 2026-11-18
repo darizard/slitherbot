@@ -9,10 +9,13 @@ import { wsConfig } from '../config.js'
 import { SlitherControllerClientWebSocket } from '../classes/slitherws.js'
 
 // Express Middleware
-import { verifyMessage, parseJson } from '../middleware/twitchevents.js'
+import { verifyMessage, parseEventJson } from '../middleware/twitchevents.js'
 
 // Internal logic modules
 import esclient from '../services/eventsubclient.js'
+
+//
+import type { TwitchEventRequest } from '../types/eventsubtypes.js'
 
 const rawParser = bodyParser.raw({ type: 'application/json' })
 const eventsRouter = express.Router()
@@ -30,12 +33,9 @@ void ws.connect(wsConfig.controllerSecret)
  * 		OR
  * 		- An existing subscription has been revoked
  **/
-eventsRouter.post('/', rawParser, verifyMessage, parseJson, async (req, res) => {
+eventsRouter.post('/', rawParser, verifyMessage, parseEventJson, async (req: TwitchEventRequest, res) => {
 
-	// TODO: Zod
-	const messageType = req.headers['twitch-eventsub-message-type'] as string
-
-	switch(messageType) {
+	switch(req.messageType) {
 		case 'webhook_callback_verification':
 			await esclient.handleChallenge(req.body, res)
 			break
@@ -49,7 +49,7 @@ eventsRouter.post('/', rawParser, verifyMessage, parseJson, async (req, res) => 
 			break
 
 		default:
-			esclient.handleUnexpectedMessage(req, res, messageType)
+			esclient.handleUnexpectedMessage(req, res, req.messageType)
 			break
 
 	}

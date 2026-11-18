@@ -1,3 +1,5 @@
+import { Request } from 'express'
+
 //***SUBSCRIPTION COMPONENT TYPES***/
 export type SubscriptionType = 
     'channel.bits.use' | 
@@ -83,23 +85,23 @@ export type CreateSubscriptionRequestBody = {
 
 }
 
-export type CreateSubscriptionSuccessResponse = {
+// export type CreateSubscriptionSuccessResponseBody = {
 
-    id: string
-    status: string
-    type: SubscriptionType
-    version: string
-    condition: EventSubCondition
-    created_at: string
-    transport: EventSubTransport
-    cost: number
-    total: number
-    total_cost: number
-    max_total_cost: number
+//     id: string
+//     status: string
+//     type: SubscriptionType
+//     version: string
+//     condition: EventSubCondition
+//     created_at: string
+//     transport: EventSubTransport
+//     cost: number
+//     total: number
+//     total_cost: number
+//     max_total_cost: number
 
-}
+// }
 
-export type WebhookCallbackChallengeRequest = {
+export type WebhookCallbackChallengeRequestBody = {
 
     challenge: string
     subscription: {
@@ -112,6 +114,12 @@ export type WebhookCallbackChallengeRequest = {
         transport: EventSubTransport
         created_at: string
     }
+
+}
+
+export type TwitchEventRequest = Request & {
+
+    messageType?: string
 
 }
 

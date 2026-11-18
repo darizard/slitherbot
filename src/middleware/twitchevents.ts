@@ -3,6 +3,8 @@ import crypto from 'crypto'
 
 import { twitchConfig } from '../config.js'
 
+import type { TwitchEventRequest } from '../types/eventsubtypes.js'
+
 const RECENT_MESSAGES = new Set<string>()  // TODO: Keep this data serialized somewhere in the project
                                            //       OR
                                            //       In memory in a more suitable location
@@ -67,7 +69,7 @@ export const verifyMessage: RequestHandler = (req, res, next) => {
     next()
 }
 
-export const parseJson: RequestHandler = (req, res, next) => {
+export const parseEventJson: RequestHandler = (req: TwitchEventRequest, res, next) => {
 
     try { req.body = JSON.parse(req.body) }
 	catch(e) { 
@@ -75,6 +77,9 @@ export const parseJson: RequestHandler = (req, res, next) => {
 		console.error('Error parsing req.body as JSON: ', e)
 		res.sendStatus(204) // Do not send client error codes back to Twitch. 204 suffices here
 	}
+
+    // TODO: Zod
+    req.messageType = req.headers['twitch-eventsub-message-type'] as string
 
     next()
 }

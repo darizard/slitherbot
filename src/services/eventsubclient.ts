@@ -218,11 +218,11 @@ export async function handleRevocation(req: express.Request, res: express.Respon
 
 }
 
-export async function handleUnexpectedMessage(req: express.Request, res: express.Response, messageType: string): Promise<void> {
+export async function handleUnexpectedMessage(req: express.Request, res: express.Response, messageType?: string): Promise<void> {
 
 	res.sendStatus(204)
 	// TODO: Elevate visibility. Do I need to support a new message type or did something go very wrong?
-	console.log(`Unknown message type received from Twitch: ${req.headers[messageType]}`)
+	console.log(`Unknown message type received from Twitch: ${req.headers[messageType ?? '']}`)
 
 }
 
@@ -303,7 +303,7 @@ export async function unsubFromEvent(subscription: eventsubtypes.TwitchEventNoti
 
 }
 
-async function registerEventSub(requestBody: eventsubtypes.WebhookCallbackChallengeRequest): Promise<void> {
+async function registerEventSub(requestBody: eventsubtypes.WebhookCallbackChallengeRequestBody): Promise<void> {
 	
 	if(EvtSub.isAppSubType(requestBody.subscription.type)) {
 		const dbSub = {
