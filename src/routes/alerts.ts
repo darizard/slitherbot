@@ -7,7 +7,7 @@ import mime from 'mime/lite'
 import { appConfig, sslConfig } from '../config.js'
 
 // Types
-import alerttypes, { MatchedAlertRequest } from '../types/alerttypes.js'
+import { AlertPostReqBody, AlertUpdateData, MatchedAlertRequest } from '../types/alerttypes.js'
 import type { SlitherAuthenticatedRequest } from '../types/authtypes.js'
 
 // Express Middleware
@@ -16,7 +16,6 @@ import { generateAlertsJWT, uploadAlertMedia } from '../middleware/eventalerts.j
 
 // DB Queries
 import { getSubById } from '../db/queries/eventsub.js'
-import { getAlertsTokenForUser } from '../db/queries/slitherauth.js'
 import { getAlert, getFriendlyFileName, getUserIDForAlertsToken, updateAlert } from '../db/queries/eventalerts.js'
 
 const jsonParser = bodyParser.json()
@@ -27,23 +26,6 @@ alertsRouter.get('/:alertsToken', generateAlertsJWT, async (req: MatchedAlertReq
 
     res.render("slither/alerts", { hostName: sslConfig.hostName,
                                     connectionToken: req.alertsJWT })
-
-})
-
-// Obtain the alerts token for the given user intended for use in an OBS browser source URL. This token is semi-public data.
-alertsRouter.post('/token', jsonParser, authenticateSlitherUser, async (req: SlitherAuthenticatedRequest, res) => {
-
-    const twitchId = req.twitchId
-    if(!twitchId) {
-        // TODO: Big logging/error visibility pass
-        console.error(`Request made to POST /slither/alerts/token with an invalid access token: ${req.cookies?.['access_token']}`)
-        return res.sendStatus(401)
-    }
-
-    const alertsToken = await getAlertsTokenForUser(twitchId) 
-    if(!alertsToken) return res.status(500).json({error: `Could not obtain alerts token for given user at POST /slither/alerts/token`}).send()
-    
-    return res.status(200).json({ alerts_token: alertsToken }).send()
 
 })
 
@@ -120,7 +102,7 @@ alertsRouter.post('/', authenticateSlitherUser, uploadAlertMedia, async (req: Sl
         return res.status(400).send('Invalid filename')
     }
 
-    const alertPostReqBody = req.body as alerttypes.AlertPostReqBody
+    const alertPostReqBody = req.body as AlertPostReqBody
 
     const files = req.files as { [fieldname: string]: Express.Multer.File[] }
     let imageFile, imageFileName, audioFile, audioFileName = undefined
@@ -136,7 +118,7 @@ alertsRouter.post('/', authenticateSlitherUser, uploadAlertMedia, async (req: Sl
     }
 
     const subId = alertPostReqBody.subscriptionId
-    const updateData: alerttypes.AlertUpdateData = { }
+    const updateData: AlertUpdateData = { }
     const audioVolume = alertPostReqBody.audioVolume ? parseInt(alertPostReqBody.audioVolume) : undefined
     const duration = alertPostReqBody.alertDuration ? parseFloat(alertPostReqBody.alertDuration) : undefined
     if(audioVolume) updateData.audio_volume = audioVolume
