@@ -7,12 +7,16 @@ import mime from 'mime/lite'
 import { appConfig, sslConfig } from '../config.js'
 
 // Types
-import type { AlertMediaRequest, AlertPostReqBody, AlertUpdateData, MatchedAlertRequest } from '../types/alerttypes.js'
+import type { AlertPostReqBody, AlertUpdateData } from '../types/alerttypes.js'
 import type { SlitherAuthenticatedRequest } from '../types/authtypes.js'
 
 // Express Middleware
 import { authenticateSlitherUser } from '../middleware/slitherauth.js'
-import { generateAlertsJWT, getAlertMediaUrl, uploadAlertMedia } from '../middleware/eventalerts.js'
+import { alertsTokenToTwitchId, uploadAlertMedia } from '../middleware/eventalerts.js'
+
+// Services
+import { getAlertMediaUrl } from '../services/eventalertsclient.js'
+import { signSlitherToken } from '../services/slitherauth.js'
 
 // DB Queries
 import { getSubById } from '../db/queries/eventsub.js'
@@ -22,21 +26,27 @@ const jsonParser = bodyParser.json()
 const alertsRouter = express.Router()
 
 // Serves a page that displays alerts for the user related to the provided alertsToken (a semi-public credential)
-alertsRouter.get('/:alertsToken', generateAlertsJWT, async (req: MatchedAlertRequest, res) => {
+alertsRouter.get('/:alertsToken', alertsTokenToTwitchId, async (req: SlitherAuthenticatedRequest, res) => {
+
+    const alertsJWT = await signSlitherToken(req.twitchId as string, 'alerts')
 
     res.render("slither/alerts", { hostName: sslConfig.hostName,
-                                    connectionToken: req.alertsJWT })
+                                    connectionToken: alertsJWT })
 
 })
 
-alertsRouter.get('/media/:alertstoken/:filename', getAlertMediaUrl, async (req: AlertMediaRequest, res) => {
+// Sends a file to the browser according to alertsToken and fileName
+alertsRouter.get('/media/:alertsToken/:fileName', alertsTokenToTwitchId, async (req: SlitherAuthenticatedRequest, res) => {
 
-    res.status(200).download(req.mediaUrl ?? '', 
-                              req.friendlyFileName ?? '',
-                              (err) => {
+    // fileName is the unique hex string representation of the file stored on the server
+    const mediaUrl = await getAlertMediaUrl(req.twitchId as string, req.params['fileName'] as string)
+    
+    return res.status(200).sendFile(mediaUrl as string, (err: NodeJS.ErrnoException | null) => {
         if(err) {
-            console.error(`Error sending media file ${req.params['filename']} in response to request at /media/:filename endpoint. Error: ${err}`)
-            res.sendStatus(404)
+            if(err.code === 'ENOENT') {
+                return res.status(404).send('File not found for given alerts token')
+            }
+            return res.status(500).send('Error sending file')
         }
     })
 
@@ -79,8 +89,12 @@ alertsRouter.post('/media', jsonParser, authenticateSlitherUser, async (req: Sli
     }
 
     return res.status(200).json({
-        imageBase64: imageFileBuffer?.toString('base64'), imageFileName: imageFileName, imageFileMime: imageFileMime,
-        audioBase64: audioFileBuffer?.toString('base64'), audioFileName: audioFileName, audioFileMime: audioFileMime
+        imageBase64: imageFileBuffer?.toString('base64'),
+        imageFileName,
+        imageFileMime,
+        audioBase64: audioFileBuffer?.toString('base64'), 
+        audioFileName,
+        audioFileMime
     })
 
 })

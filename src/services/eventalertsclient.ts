@@ -1,11 +1,13 @@
-import eventalertssql from '../db/queries/eventalerts.js';;
-import twitchsql from '../db/queries/twitchauth.js';
 import fs from 'fs';
+
 import { appConfig } from '../config.js';
+
+import { getAllUserMediaData, initEventAlerts } from '../db/queries/eventalerts.js';
+import { getActiveChannels } from '../db/queries/twitchauth.js';
 
 export async function initialize(): Promise<void> {
 
-    await eventalertssql.initEventAlerts();
+    await initEventAlerts();
     void initAlertsPathsFS();
     await removeUnusedAlertMedia();
 
@@ -13,7 +15,7 @@ export async function initialize(): Promise<void> {
 
 async function initAlertsPathsFS(): Promise<void> {
 
-    const twitchIds = await twitchsql.getActiveChannels();
+    const twitchIds = await getActiveChannels();
     twitchIds.forEach((twitchId) => {
 
         try {
@@ -29,7 +31,7 @@ async function initAlertsPathsFS(): Promise<void> {
 async function removeUnusedAlertMedia(): Promise<void> {
 
     // https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/reduce
-    const dbMedia = (await eventalertssql.getAllUserMediaData()).reduce((map, item) => {
+    const dbMedia = (await getAllUserMediaData()).reduce((map, item) => {
 
         const [key, val] = Object.values(item);
         if(!key || !val) return map;
@@ -58,6 +60,13 @@ async function removeUnusedAlertMedia(): Promise<void> {
             }
         }
     }
+
+}
+
+export const getAlertMediaUrl = async(userId: string, fileName: string): Promise<string> => {
+
+    // Incoming filename references the hex charset filename stored in the user-specific media folder
+    return `${appConfig.appPath}/resources/alertmedia/${userId}/${fileName}`
 
 }
 

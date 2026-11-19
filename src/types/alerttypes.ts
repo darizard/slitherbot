@@ -1,4 +1,3 @@
-import { Request } from 'express'
 import { SubscriptionType } from './eventsubtypes.js'
 
 export type EventAlertCategory = 'Follows' | 'Subscriptions' | 'Channel Points' | 'Raids' | 'Hype Trains' | 'Bits' | 'Shoutouts'
@@ -40,14 +39,10 @@ export type AlertUpdateData = {
 
 }
 
-export type MatchedAlertRequest = Request & {
-    alertsJWT?: string | undefined
-}
-
-export type AlertMediaRequest = Request & {
-    mediaUrl?: string | undefined
-    fileName?: string | undefined
-    friendlyFileName?: string | undefined
+export type AlertMediaData = {
+    mediaUrl: string
+    fileName: string
+    friendlyFileName: string
 }
 
 export * as default from './alerttypes.js'
