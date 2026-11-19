@@ -5,10 +5,10 @@ import path from 'path'
 
 import { appConfig } from '../config.js'
 
-import { MatchedAlertRequest } from '../types/alerttypes.js'
-import { SlitherAuthenticatedRequest } from '../types/authtypes.js'
+import type { AlertMediaRequest, MatchedAlertRequest } from '../types/alerttypes.js'
+import type { SlitherAuthenticatedRequest } from '../types/authtypes.js'
 
-import { getUserIDForAlertsToken } from '../db/queries/eventalerts.js'
+import { getFriendlyFileName, getUserIDForAlertsToken } from '../db/queries/eventalerts.js'
 import { signSlitherToken } from '../services/slitherauth.js'
 
 const REPLACE_CHARS_BASE = /[^\w\-]/g
@@ -53,13 +53,34 @@ export const uploadAlertMedia = multer({
 
 // If user found for the provided alerts token in the 'Token' URL query parameter, returns a signed JWT with payload
 // {userId = SlitherIDs.twitch_id, tokenType = 'alerts'}
-export const generateAlertsJWT: RequestHandler = async (req: MatchedAlertRequest, res, next) => {
+export const generateAlertsJWT: RequestHandler = async(req: MatchedAlertRequest, res, next) => {
 
     const user_id = await getUserIDForAlertsToken(req.params['alertsToken'] as string)
     if(!user_id) return res.sendStatus(403)
 
     req.alertsJWT = await signSlitherToken(user_id, 'alerts')
 	next()
+
+}
+
+export const getAlertMediaUrl: RequestHandler = async(req: AlertMediaRequest, res, next) => {
+
+    // Incoming filename references the hex charset filename stored in the user-specific media folder
+    const fileName = req.params['filename'] as string
+    const alertsToken = req.params['alertstoken'] as string
+    const userId = await getUserIDForAlertsToken(alertsToken)
+    const friendlyFileName = await getFriendlyFileName(fileName)
+
+    if(!friendlyFileName) {
+        console.error(`Error finding filename for request received at /slither/media/${alertsToken}/${fileName}`)
+        return res.status(500).send('Oops. Could not find filename for requested media. Things are probably broken. :(')
+    }
+
+    req.mediaUrl = `${appConfig.appPath}/resources/alertmedia/${userId}/${fileName}`
+    req.fileName = fileName
+    req.friendlyFileName = friendlyFileName
+
+    next()
 
 }
 

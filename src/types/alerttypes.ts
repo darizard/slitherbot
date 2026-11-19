@@ -44,4 +44,10 @@ export type MatchedAlertRequest = Request & {
     alertsJWT?: string | undefined
 }
 
+export type AlertMediaRequest = Request & {
+    mediaUrl?: string | undefined
+    fileName?: string | undefined
+    friendlyFileName?: string | undefined
+}
+
 export * as default from './alerttypes.js'

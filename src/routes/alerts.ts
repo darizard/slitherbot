@@ -7,16 +7,16 @@ import mime from 'mime/lite'
 import { appConfig, sslConfig } from '../config.js'
 
 // Types
-import { AlertPostReqBody, AlertUpdateData, MatchedAlertRequest } from '../types/alerttypes.js'
+import type { AlertMediaRequest, AlertPostReqBody, AlertUpdateData, MatchedAlertRequest } from '../types/alerttypes.js'
 import type { SlitherAuthenticatedRequest } from '../types/authtypes.js'
 
 // Express Middleware
 import { authenticateSlitherUser } from '../middleware/slitherauth.js'
-import { generateAlertsJWT, uploadAlertMedia } from '../middleware/eventalerts.js'
+import { generateAlertsJWT, getAlertMediaUrl, uploadAlertMedia } from '../middleware/eventalerts.js'
 
 // DB Queries
 import { getSubById } from '../db/queries/eventsub.js'
-import { getAlert, getFriendlyFileName, getUserIDForAlertsToken, updateAlert } from '../db/queries/eventalerts.js'
+import { getAlert, updateAlert } from '../db/queries/eventalerts.js'
 
 const jsonParser = bodyParser.json()
 const alertsRouter = express.Router()
@@ -29,24 +29,13 @@ alertsRouter.get('/:alertsToken', generateAlertsJWT, async (req: MatchedAlertReq
 
 })
 
-alertsRouter.get('/media/:alertstoken/:filename', async (req, res) => {
+alertsRouter.get('/media/:alertstoken/:filename', getAlertMediaUrl, async (req: AlertMediaRequest, res) => {
 
-    // Incoming filename references the hex charset filename stored in the user-specific media folder
-    const fileName = req.params['filename'] as string
-    const alertsToken = req.params['alertstoken'] as string
-    const userId = await getUserIDForAlertsToken(alertsToken)
-    const friendlyFileName = await getFriendlyFileName(fileName)
-
-    if(!friendlyFileName) {
-        console.error(`Error finding filename for request received at /slither/media/${alertsToken}/${fileName}`)
-        return res.status(500).send('Oops. Could not find filename for requested media. Things are probably broken. :(')
-    }
-    
-    res.status(200).download(`${appConfig.appPath}/resources/alertmedia/${userId}/${fileName}`, 
-                              friendlyFileName,
+    res.status(200).download(req.mediaUrl ?? '', 
+                              req.friendlyFileName ?? '',
                               (err) => {
         if(err) {
-            console.error(`Error sending media file ${fileName} in response to request at /media/:filename endpoint. Error: ${err}`)
+            console.error(`Error sending media file ${req.params['filename']} in response to request at /media/:filename endpoint. Error: ${err}`)
             res.sendStatus(404)
         }
     })
