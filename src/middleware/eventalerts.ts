@@ -1,8 +1,15 @@
+import { RequestHandler } from 'express'
 import multer from 'multer'
 import { FileFilterCallback } from 'multer'
-import { appConfig } from '../config.js'
-import { SlitherAuthenticatedRequest } from '../types/authtypes.js'
 import path from 'path'
+
+import { appConfig } from '../config.js'
+
+import { MatchedAlertRequest } from '../types/alerttypes.js'
+import { SlitherAuthenticatedRequest } from '../types/authtypes.js'
+
+import { getUserIDForAlertsToken } from '../db/queries/eventalerts.js'
+import { signSlitherToken } from '../services/slitherauth.js'
 
 const REPLACE_CHARS_BASE = /[^\w\-]/g
 const ALLOWED_EXT = /^\.(?i:apng|avif|gif|jpg|jpeg|jfif|pjpeg|pjp|png|svg|webp|mp3|wav|m4a)$/
@@ -43,5 +50,17 @@ export const uploadAlertMedia = multer({
         { name: 'imageBlob', maxCount: 1 },
         { name: 'audioBlob', maxCount: 1 }
 ])
+
+// If user found for the provided alerts token in the 'Token' URL query parameter, returns a signed JWT with payload
+// {userId = SlitherIDs.twitch_id, tokenType = 'alerts'}
+export const generateAlertsJWT: RequestHandler = async (req: MatchedAlertRequest, res, next) => {
+
+    const user_id = await getUserIDForAlertsToken(req.params['alertsToken'] as string)
+    if(!user_id) return res.sendStatus(403)
+
+    req.alertsJWT = await signSlitherToken(user_id, 'alerts')
+	next()
+
+}
 
 export * as default from './eventalerts.js'

@@ -51,16 +51,6 @@ export async function getAlertsTokenForUser(twitchId: string | undefined): Promi
             ?.alerts_token
 }
 
-export async function getUserIDForAlertsToken(paramToken: string): Promise<string | null | undefined> {
-
-    return (await db.selectFrom('SlitherIDs')
-            .select('twitch_id')
-            .where('alerts_token', '=', paramToken)
-            .executeTakeFirst())
-                ?.twitch_id
-
-}
-
 export async function requiresLogin(userId: string | undefined): Promise<boolean> {
 
     return (await db.selectFrom('SlitherIDs')

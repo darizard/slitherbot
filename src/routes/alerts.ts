@@ -7,32 +7,26 @@ import mime from 'mime/lite'
 import { appConfig, sslConfig } from '../config.js'
 
 // Types
-import alerttypes from '../types/alerttypes.js'
-import { SlitherAuthenticatedRequest } from '../types/authtypes.js'
+import alerttypes, { MatchedAlertRequest } from '../types/alerttypes.js'
+import type { SlitherAuthenticatedRequest } from '../types/authtypes.js'
 
 // Express Middleware
 import { authenticateSlitherUser } from '../middleware/slitherauth.js'
-import { uploadAlertMedia } from '../middleware/eventalerts.js'
+import { generateAlertsJWT, uploadAlertMedia } from '../middleware/eventalerts.js'
 
 // DB Queries
-import eventsubsql from '../db/queries/eventsub.js'
-import slithersql from '../db/queries/slitherauth.js'
-import eventalertssql from '../db/queries/eventalerts.js'
-
-// Business logic
-import { verifyAlertsToken } from '../services/slitherauth.js'
+import { getSubById } from '../db/queries/eventsub.js'
+import { getAlertsTokenForUser } from '../db/queries/slitherauth.js'
+import { getAlert, getFriendlyFileName, getUserIDForAlertsToken, updateAlert } from '../db/queries/eventalerts.js'
 
 const jsonParser = bodyParser.json()
 const alertsRouter = express.Router()
 
-// Serves a page that displays alerts for the user authenticated by alertsToken. alertsToken is a semi-public credential
-// which serves no purpose other than to serve the user-configured alerts and cannot be used externally to identify the user
-alertsRouter.get('/:alertsToken', async (req, res) => {
-
-    const token = await verifyAlertsToken(req.params.alertsToken)
+// Serves a page that displays alerts for the user related to the provided alertsToken (a semi-public credential)
+alertsRouter.get('/:alertsToken', generateAlertsJWT, async (req: MatchedAlertRequest, res) => {
 
     res.render("slither/alerts", { hostName: sslConfig.hostName,
-                                    connectionToken: token })
+                                    connectionToken: req.alertsJWT })
 
 })
 
@@ -46,7 +40,7 @@ alertsRouter.post('/token', jsonParser, authenticateSlitherUser, async (req: Sli
         return res.sendStatus(401)
     }
 
-    const alertsToken = await slithersql.getAlertsTokenForUser(twitchId) 
+    const alertsToken = await getAlertsTokenForUser(twitchId) 
     if(!alertsToken) return res.status(500).json({error: `Could not obtain alerts token for given user at POST /slither/alerts/token`}).send()
     
     return res.status(200).json({ alerts_token: alertsToken }).send()
@@ -58,8 +52,8 @@ alertsRouter.get('/media/:alertstoken/:filename', async (req, res) => {
     // Incoming filename references the hex charset filename stored in the user-specific media folder
     const fileName = req.params['filename'] as string
     const alertsToken = req.params['alertstoken'] as string
-    const userId = await slithersql.getUserIDForAlertsToken(alertsToken)
-    const friendlyFileName = await eventalertssql.getFriendlyFileName(fileName)
+    const userId = await getUserIDForAlertsToken(alertsToken)
+    const friendlyFileName = await getFriendlyFileName(fileName)
 
     if(!friendlyFileName) {
         console.error(`Error finding filename for request received at /slither/media/${alertsToken}/${fileName}`)
@@ -80,10 +74,10 @@ alertsRouter.get('/media/:alertstoken/:filename', async (req, res) => {
 // Primarily for serving media files to the home page for the alerts customization dashboard
 alertsRouter.post('/media', jsonParser, authenticateSlitherUser, async (req: SlitherAuthenticatedRequest, res) => {
 
-    const alert = await eventalertssql.getAlert(req.body.subId)
+    const alert = await getAlert(req.body.subId)
     if(!alert) return res.sendStatus(404)
 
-    const subType = await eventsubsql.getSubById(alert.sub_id)
+    const subType = await getSubById(alert.sub_id)
     if(!subType) {
         console.error('Sub exists with invalid type. Investigate.')
         return res.sendStatus(500)
@@ -154,9 +148,9 @@ alertsRouter.post('/', authenticateSlitherUser, uploadAlertMedia, async (req: Sl
     if(audioFileName) updateData.audio_file_name = audioFileName
 
     // Get pre-update image and audio data filenames from the DB
-    const { image_file, audio_file } = (await eventalertssql.getAlert(subId)) || { audio_file: undefined, image_file: undefined }
+    const { image_file, audio_file } = (await getAlert(subId)) || { audio_file: undefined, image_file: undefined }
 
-    await eventalertssql.updateAlert(subId, updateData)
+    await updateAlert(subId, updateData)
 
     // If both the new and old file names reference a file, we should delete the old one!
     if(imageFile && image_file) {

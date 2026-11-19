@@ -1,6 +1,7 @@
-import { SubscriptionType } from "./eventsubtypes.js";
+import { Request } from 'express'
+import { SubscriptionType } from './eventsubtypes.js'
 
-export type EventAlertCategory = 'Follows' | 'Subscriptions' | 'Channel Points' | 'Raids' | 'Hype Trains' | 'Bits' | 'Shoutouts';
+export type EventAlertCategory = 'Follows' | 'Subscriptions' | 'Channel Points' | 'Raids' | 'Hype Trains' | 'Bits' | 'Shoutouts'
 
 export type EventAlertDetails = {
 
@@ -39,4 +40,8 @@ export type AlertUpdateData = {
 
 }
 
-export * as default from './alerttypes.js';
+export type MatchedAlertRequest = Request & {
+    alertsJWT?: string | undefined
+}
+
+export * as default from './alerttypes.js'

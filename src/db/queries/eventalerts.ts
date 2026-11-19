@@ -129,4 +129,14 @@ export async function testQuery(filename: string): Promise<string | null> {
     return resultObj?.friendly_name || null
 }
 
+export async function getUserIDForAlertsToken(paramToken: string): Promise<string | null | undefined> {
+
+    return (await db.selectFrom('SlitherIDs')
+            .select('twitch_id')
+            .where('alerts_token', '=', paramToken)
+            .executeTakeFirst())
+                ?.twitch_id
+
+}
+
 export * as default from './eventalerts.js'

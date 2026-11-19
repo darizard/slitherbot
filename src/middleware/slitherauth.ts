@@ -1,31 +1,31 @@
-import { RequestHandler } from "express";
-import { verifySlitherToken, refreshSlitherAccessToken, addSlitherTokenCookie } from '../services/slitherauth.js';
-import { requiresLogin } from '../db/queries/slitherauth.js';
-import { SlitherAuthenticatedRequest } from '../types/authtypes.js';
+import { RequestHandler } from "express"
+import { addSlitherTokenCookie, refreshSlitherAccessToken, verifySlitherToken } from '../services/slitherauth.js'
+import { requiresLogin } from '../db/queries/slitherauth.js'
+import type { SlitherAuthenticatedRequest } from '../types/authtypes.js'
 
 export const authenticateSlitherUser: RequestHandler = async (req: SlitherAuthenticatedRequest, res, next) => {
 
-    let twitchId = await verifySlitherToken(req.cookies['access_token'], 'access');
+    let twitchId = await verifySlitherToken(req.cookies['access_token'], 'access')
 
 	if(await requiresLogin(twitchId)) {
 
-		res.clearCookie('access_token');
-		res.clearCookie('refresh_token');
-		return res.redirect(`/slither/auth`);
+		res.clearCookie('access_token')
+		res.clearCookie('refresh_token')
+		return res.redirect(`/slither/auth`)
 
 	}
 
 	if(!twitchId) {
-		const refreshResult = await refreshSlitherAccessToken(req.cookies['refresh_token']);
-		if(!refreshResult || !refreshResult.accessToken) return res.redirect(`/slither/auth`);
+		const refreshResult = await refreshSlitherAccessToken(req.cookies['refresh_token'])
+		if(!refreshResult || !refreshResult.accessToken) return res.redirect(`/slither/auth`)
 
-		addSlitherTokenCookie(res, refreshResult.accessToken, 'access');
+		addSlitherTokenCookie(res, refreshResult.accessToken, 'access')
 
-		twitchId = refreshResult.userId;
+		twitchId = refreshResult.userId
 
 	}
 
-    req.twitchId = twitchId;
-    next();
+    req.twitchId = twitchId
+    next()
 
 }
