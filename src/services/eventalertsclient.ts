@@ -1,30 +1,33 @@
-import fs from 'fs';
+import fs from 'fs'
+import mime from 'mime'
 
-import { appConfig } from '../config.js';
+import { appConfig } from '../config.js'
 
-import { getAllUserMediaData, initEventAlerts } from '../db/queries/eventalerts.js';
-import { getActiveChannels } from '../db/queries/twitchauth.js';
+import { getAlert, getAllUserMediaData, initEventAlerts } from '../db/queries/eventalerts.js'
+import { getActiveChannels } from '../db/queries/twitchauth.js'
+
+import type { AlertMediaData } from '../types/alerttypes.js'
 
 export async function initialize(): Promise<void> {
 
-    await initEventAlerts();
-    void initAlertsPathsFS();
-    await removeUnusedAlertMedia();
+    await initEventAlerts()
+    void initAlertsPathsFS()
+    await removeUnusedAlertMedia()
 
 }
 
 async function initAlertsPathsFS(): Promise<void> {
 
-    const twitchIds = await getActiveChannels();
+    const twitchIds = await getActiveChannels()
     twitchIds.forEach((twitchId) => {
 
         try {
-            fs.promises.mkdir(`${appConfig.appPath}/resources/alertmedia/${twitchId}`, { recursive: true});
+            fs.promises.mkdir(`${appConfig.appPath}/resources/alertmedia/${twitchId}`, { recursive: true})
         } catch(err) {
-            console.error(`Error creating alerts media directory for user ${twitchId}: ${err}`);
+            console.error(`Error creating alerts media directory for user ${twitchId}: ${err}`)
         }
 
-    });
+    })
 
 }
 
@@ -33,29 +36,29 @@ async function removeUnusedAlertMedia(): Promise<void> {
     // https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/reduce
     const dbMedia = (await getAllUserMediaData()).reduce((map, item) => {
 
-        const [key, val] = Object.values(item);
-        if(!key || !val) return map;
-        if(!map.has(val)) { map.set(val, new Set<string>()); }
+        const [key, val] = Object.values(item)
+        if(!key || !val) return map
+        if(!map.has(val)) { map.set(val, new Set<string>()) }
 
-        map.get(val)?.add(key);
-        return map;
-    }, new Map<string, Set<string>>());
+        map.get(val)?.add(key)
+        return map
+    }, new Map<string, Set<string>>())
 
-    if(!dbMedia) return;
+    if(!dbMedia) return
     for(const user of dbMedia.keys()) {
         // Array of media filenames stored on server for the given user
-        const userStoredMedia = await fs.promises.readdir(`${appConfig.appPath}/resources/alertmedia/${user}`);
+        const userStoredMedia = await fs.promises.readdir(`${appConfig.appPath}/resources/alertmedia/${user}`)
         // Set of media filenames actively used in an alert for the given user
-        const userActiveMedia = dbMedia.get(user);
-        if(!userActiveMedia) continue;
+        const userActiveMedia = dbMedia.get(user)
+        if(!userActiveMedia) continue
 
         // Delete all stored media that is not being used in an active alert
         for(const storedFile of userStoredMedia) {
             if(!userActiveMedia.has(storedFile)) {
                 try {
-                    await fs.promises.unlink(`${appConfig.appPath}/resources/alertmedia/${user}/${storedFile}`);
+                    await fs.promises.unlink(`${appConfig.appPath}/resources/alertmedia/${user}/${storedFile}`)
                 } catch (e) {
-                    console.error(`Could not delete media file ${user}/${storedFile}`);
+                    console.error(`Could not delete media file ${user}/${storedFile}`)
                 }
             }
         }
@@ -63,11 +66,54 @@ async function removeUnusedAlertMedia(): Promise<void> {
 
 }
 
-export const getAlertMediaUrl = async(userId: string, fileName: string): Promise<string> => {
+export const getAlertMedia = async(userId: string, subId: string, mediaType: `image` | `audio`): Promise<AlertMediaData | undefined> => {
+
+    
+    const fileNames = await getAlertMediaFileNames(subId, mediaType)
+    if(!fileNames) return undefined
+    const filePath = buildAlertMediaPath(userId, fileNames.hex)
+    if(!filePath) return undefined
+    
+    try {
+
+        const fileBuffer = await fs.promises.readFile(filePath)
+        const fileMime = mime.getType(fileNames.pretty)
+
+        return {
+            base64: fileBuffer.toString('base64'),
+            fileName: fileNames.pretty,
+            fileMime: fileMime ?? ''
+        }
+
+    } catch(e) {
+
+        throw new Error(`Requested media file referenced in DB does not exist on disk. DB alert object: ${JSON.stringify(alert)}`)
+
+    }
+
+}
+
+// TODO: Use or don't?
+async function getAlertMediaFileNames(subId: string, mediaType: 'image' | 'audio'): Promise<{ hex: string, pretty: string } | undefined> {
+    
+    const alert = await getAlert(subId)
+    if(!alert) return undefined
+
+    switch(mediaType) {
+        case `image`:
+            return { hex: alert.image_file ?? '', pretty: alert.image_file_name ?? '' }
+        case `audio`:
+            return { hex: alert.audio_file ?? '', pretty: alert.audio_file_name ?? '' }
+        default:
+            console.error(`Invalid media type: ${mediaType satisfies never}`)
+    }
+}
+
+export function buildAlertMediaPath(userId: string, fileName: string | undefined): string | undefined {
 
     // Incoming filename references the hex charset filename stored in the user-specific media folder
     return `${appConfig.appPath}/resources/alertmedia/${userId}/${fileName}`
 
 }
 
-export * as default from './eventalertsclient.js';
+export * as default from './eventalertsclient.js'

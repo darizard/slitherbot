@@ -40,9 +40,9 @@ export type AlertUpdateData = {
 }
 
 export type AlertMediaData = {
-    mediaUrl: string
+    base64: string
     fileName: string
-    friendlyFileName: string
+    fileMime: string
 }
 
 export * as default from './alerttypes.js'

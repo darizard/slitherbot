@@ -10,13 +10,9 @@ export type EventAlertDetails = Omit<alerttypes.EventAlertDetails, 'subscription
 };
 
 export type APIMedia = {
-    imageBlob?: Blob, 
-    imageFileName?: string, 
-    imageFileMime?: string,
-    audioBlob?: Blob,
-    audioFileName?: string,
-    audioFileMime?: string,
-    subType: SubscriptionType
+    fileBlob: Blob, 
+    fileName: string, 
+    fileMime: string,
 }
 
 export * as default from './viewtypes.js';
