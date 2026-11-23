@@ -1,26 +1,20 @@
 // External modules
 import bodyParser from 'body-parser'
 import express from 'express'
-import fs from 'fs'
-
-import { appConfig } from '../config.js'
 
 // Internal TS types and runtime type guards
 import type { SlitherAuthenticatedRequest } from '../types/authtypes.js'
 
 // Express Middleware
-import { uploadAlertMedia } from '../middleware/eventalerts.js'
+import { alertMediaMulter } from '../middleware/eventalerts.js'
 import { authenticateSlitherUser } from '../middleware/slitherauth.js'
 
 // Services
-import { getHomePageData } from '../services/slither.js'
+import { getHomePageData, saveAlertMedia } from '../services/slither.js'
 import { getAlertMedia } from '../services/eventalertsclient.js'
 
 // Types
-import { AlertPostReqBody, AlertUpdateData } from '../types/alerttypes.js'
-
-// DB queries
-import { getAlert, updateAlert } from '../db/queries/eventalerts.js'
+import { AlertPostReqBody } from '../types/alerttypes.js'
 
 const jsonParser = bodyParser.json()
 const slitherRouter = express.Router()
@@ -50,9 +44,7 @@ slitherRouter.get('/logout', (_req, res) => {
 
 })
 
-// TODO: Refactor endpoint to follow better principles
-// Serve the image and audio files (one each) related to the given subId for the authenticated user
-// Requires access token authentication
+// Serve the media file related to the given Subscription Id and Media Type for the authenticated user
 slitherRouter.get('/media/:subId/:mediaType', authenticateSlitherUser, jsonParser, async (req: SlitherAuthenticatedRequest, res) => {
 
     const userId = req.twitchId as string
@@ -78,60 +70,18 @@ slitherRouter.get('/media/:subId/:mediaType', authenticateSlitherUser, jsonParse
     
 })
 
-// TODO: Refactor endpoint to follow better principles
-slitherRouter.put('/media', authenticateSlitherUser, uploadAlertMedia, async (req: SlitherAuthenticatedRequest, res) => {
+// Uploads media file(s) to be used in Twitch event alerts
+slitherRouter.put('/media', authenticateSlitherUser, alertMediaMulter, async (req: SlitherAuthenticatedRequest, res) => {
 
     if(req.fileValidationError) {
         return res.status(400).send('Invalid filename')
     }
 
     const alertPostReqBody = req.body as AlertPostReqBody
-
     const files = req.files as { [fieldname: string]: Express.Multer.File[] }
-    let imageFile, imageFileName, audioFile, audioFileName = undefined
-    if(files['imageBlob'] && files['imageBlob'][0]) {
-        const img = files['imageBlob'][0]
-        imageFile = img.filename
-        imageFileName = img.originalname
-    }
-    if(files['audioBlob'] && files['audioBlob'][0]) {
-        const audio = files['audioBlob'][0]
-        audioFile = audio.filename
-        audioFileName = audio.originalname
-    }
+    const twitchId = req.twitchId as string
 
-    const subId = alertPostReqBody.subscriptionId
-    const updateData: AlertUpdateData = { }
-    const audioVolume = alertPostReqBody.audioVolume ? parseInt(alertPostReqBody.audioVolume) : undefined
-    const duration = alertPostReqBody.alertDuration ? parseFloat(alertPostReqBody.alertDuration) : undefined
-    if(audioVolume) updateData.audio_volume = audioVolume
-    if(duration) updateData.duration = duration
-    if(alertPostReqBody.alertText) updateData.alert_text = alertPostReqBody.alertText
-    if(imageFile) updateData.image_file = imageFile
-    if(imageFileName) updateData.image_file_name = imageFileName
-    if(audioFile) updateData.audio_file = audioFile
-    if(audioFileName) updateData.audio_file_name = audioFileName
-
-    // Get pre-update image and audio data filenames from the DB
-    const { image_file, audio_file } = (await getAlert(subId)) || { audio_file: undefined, image_file: undefined }
-
-    await updateAlert(subId, updateData)
-
-    // If both the new and old file names reference a file, we should delete the old one!
-    if(imageFile && image_file) {
-        try {
-            await fs.promises.unlink(`${appConfig.appPath}/resources/alertmedia/${req.twitchId}/${image_file}`)
-        } catch(err) { 
-            console.error(`Could not delete old image file for subId ${subId}`)
-        }
-    }
-    if(audioFile && audio_file) {
-        try {
-            await fs.promises.unlink(`${appConfig.appPath}/resources/alertmedia/${req.twitchId}/${audio_file}`)
-        } catch(err) { 
-            console.error(`Could not delete old audio file for subId ${subId}`)
-        }
-    }
+    await saveAlertMedia(alertPostReqBody, files, twitchId)
 
     res.sendStatus(204)
 

@@ -204,7 +204,6 @@ async function changeSelectedAlert(type: SubscriptionType | undefined): Promise<
 
 }
 
-// TODO: Refactor for one-file-per-request
 /** Display the details for the currently selected alert. If the user has entered unsaved data, display it. Otherwise, show the details
  *  for the currently saved alert on the server.
  */
@@ -279,7 +278,6 @@ async function uploadAlert() {
     if(unsavedAlert.alertText) data.append('alertText', unsavedAlert.alertText)
     data.append('subscriptionId', mappedAlert.subscriptionId)
 
-    // TODO: Changed this to PUT. Verify it still works...
     const res = await fetch('/slither/media', {
         method: 'PUT',
         body: data

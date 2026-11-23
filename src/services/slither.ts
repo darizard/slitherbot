@@ -1,7 +1,11 @@
-import { sslConfig } from '../config.js'
-import eventalertssql from '../db/queries/eventalerts.js'
-import slithersql from '../db/queries/slitherauth.js'
-import type { EventAlertCategory, EventAlertDetails } from '../types/alerttypes.js'
+import fs from 'fs'
+
+import { appConfig, sslConfig } from '../config.js'
+
+import { getAlert, getUserAlerts, updateAlert } from '../db/queries/eventalerts.js'
+import { getAlertsTokenForUser } from '../db/queries/slitherauth.js'
+
+import type { AlertPostReqBody, AlertUpdateData, EventAlertCategory, EventAlertDetails } from '../types/alerttypes.js'
 
 /*******************************************************************************
 *******************************     HOME PAGE     ******************************
@@ -18,8 +22,8 @@ export interface HomePageData {
 
 export async function getHomePageData(twitchId: string): Promise<HomePageData> {
     // 1. Database Queries (Service Layer responsibility)
-    const alertsToken = await slithersql.getAlertsTokenForUser(twitchId)
-    const alertsArr = await eventalertssql.getUserAlerts(twitchId)
+    const alertsToken = await getAlertsTokenForUser(twitchId)
+    const alertsArr = await getUserAlerts(twitchId)
 
     // 2. Business Logic / URL Construction
     const alertsUrl = alertsToken ? `https://${sslConfig.hostName}/slither/alerts/${alertsToken}` : ''
@@ -70,3 +74,51 @@ function transformAlertsToMap(alerts: EventAlertDetails[]): Map<EventAlertCatego
   return rtnMap
 }
 
+export async function saveAlertMedia(requestBody: AlertPostReqBody, files: { [fieldname: string]: Express.Multer.File[] }, twitchId: string): Promise<void> {
+
+let imageFile, imageFileName, audioFile, audioFileName = undefined
+    if(files['imageBlob'] && files['imageBlob'][0]) {
+        const img = files['imageBlob'][0]
+        imageFile = img.filename
+        imageFileName = img.originalname
+    }
+    if(files['audioBlob'] && files['audioBlob'][0]) {
+        const audio = files['audioBlob'][0]
+        audioFile = audio.filename
+        audioFileName = audio.originalname
+    }
+
+    const subId = requestBody.subscriptionId
+    const updateData: AlertUpdateData = { }
+    const audioVolume = requestBody.audioVolume ? parseInt(requestBody.audioVolume) : undefined
+    const duration = requestBody.alertDuration ? parseFloat(requestBody.alertDuration) : undefined
+    if(audioVolume) updateData.audio_volume = audioVolume
+    if(duration) updateData.duration = duration
+    if(requestBody.alertText) updateData.alert_text = requestBody.alertText
+    if(imageFile) updateData.image_file = imageFile
+    if(imageFileName) updateData.image_file_name = imageFileName
+    if(audioFile) updateData.audio_file = audioFile
+    if(audioFileName) updateData.audio_file_name = audioFileName
+
+    // Get pre-update image and audio data filenames from the DB
+    const { image_file, audio_file } = (await getAlert(subId)) || { audio_file: undefined, image_file: undefined }
+
+    await updateAlert(subId, updateData)
+
+    // If both the new and old file names reference a file, we should delete the old one!
+    if(imageFile && image_file) {
+        try {
+            await fs.promises.unlink(`${appConfig.appPath}/resources/alertmedia/${twitchId}/${image_file}`)
+        } catch(err) { 
+            console.error(`Could not delete old image file for subId ${subId}`)
+        }
+    }
+    if(audioFile && audio_file) {
+        try {
+            await fs.promises.unlink(`${appConfig.appPath}/resources/alertmedia/${twitchId}/${audio_file}`)
+        } catch(err) { 
+            console.error(`Could not delete old audio file for subId ${subId}`)
+        }
+    }
+
+}

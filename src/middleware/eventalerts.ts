@@ -13,7 +13,7 @@ const REPLACE_CHARS_BASE = /[^\w\-]/g
 const ALLOWED_EXT = /^\.(?i:apng|avif|gif|jpg|jpeg|jfif|pjpeg|pjp|png|svg|webp|mp3|wav|m4a)$/
 
 const storage = multer.diskStorage({
-    destination: function (req: SlitherAuthenticatedRequest, _file, cb) {
+    destination: (req: SlitherAuthenticatedRequest, _file, cb) => {
         cb(null, `${appConfig.appPath}/resources/alertmedia/${req.twitchId}`)
     }
 })
@@ -40,7 +40,7 @@ const fileFilter = (req: SlitherAuthenticatedRequest, file: Express.Multer.File,
     
 }
 
-export const uploadAlertMedia = multer({ 
+export const alertMediaMulter = multer({ 
         storage: storage,
         limits: { fileSize: 5e+6 },
         fileFilter: fileFilter })
