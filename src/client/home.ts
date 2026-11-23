@@ -338,8 +338,6 @@ async function discardAlertChanges() {
 
 async function getAlertMedia(subId: string, mediaType: ('image' | 'audio')): Promise<APIMedia | null> {
 
-    console.log(`subId: ${subId}, mediaType: ${mediaType}`)
-
     // Endpoint returns JSON with { base64: <Blob>, fileName: <string>, fileMime <string> }
     const response = await fetch(`/slither/media/${subId}/${mediaType}`, { method: 'GET',
                                                             headers: { 'Content-Type': 'application/json' }
