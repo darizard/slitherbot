@@ -8,7 +8,7 @@ import { WebSocket, RawData } from 'ws'
 import type { WSMessage, AlertMessage, PingMessage, PongMessage } from '../types/slitherwstypes.js'
 import { isAlertMessage, isPingMessage, isPongMessage } from '../types/slitherwstypes.js'
 
-import { sslConfig } from '../config.js'
+import { hostConfig } from '../config.js'
 
 import { SignJWT } from 'jose'
 
@@ -120,7 +120,7 @@ export class SlitherControllerClientWebSocket implements ISlitherWebSocket {
                             .setProtectedHeader({alg: 'HS256'})
                             .sign(SECRET)
 
-        this.#ws = new WebSocket(`wss://${sslConfig.hostName}/slither?clientType=${this.clientType}&token=${token}`)
+        this.#ws = new WebSocket(`wss://${hostConfig.hostName}/slither?clientType=${this.clientType}&token=${token}`)
 
         this.#ws.on('error', this.onError)
         this.#ws.on('open', this.onOpen)

@@ -4,9 +4,11 @@
 
 import { Insertable, InsertResult } from 'kysely'
 import { DB } from "kysely-codegen"
-import twitchsql, { updateSlitherAppToken } from '../db/queries/twitchauth.js'
-import { twitchConfig, sslConfig } from "../config.js"
+import twitchsql from '../db/queries/twitchauth.js'
+import { twitchConfig, hostConfig } from "../config.js"
 import authtypes from '../types/authtypes.js'
+
+const AUTH_STATES = new Set<string>()
 
 export async function getValidatedAppAccessToken(): Promise<string | undefined> {
 
@@ -39,7 +41,7 @@ async function obtainNewAppAccessToken(): Promise<string | undefined> {
         
     })
 
-    const tokenUpdateResult = await updateSlitherAppToken(appToken)
+    const tokenUpdateResult = await twitchsql.updateSlitherAppToken(appToken)
     if(tokenUpdateResult.numChangedRows && tokenUpdateResult.numChangedRows > 0n) return appToken?.access_token
     return
 
@@ -183,13 +185,14 @@ async function clearUserAccessTokens(channel_ids: string[] | string) {
 
 }
 
-export async function fetchUserAccessToken(code: string): Promise<authtypes.TwitchAuthUserToken> {
+export async function fetchTwitchUAT(code: string): Promise<authtypes.TwitchAuthUserToken> {
+
     const tokenRequest: authtypes.TwitchAuthUserTokenRequest = {
         client_id: `${twitchConfig.clientId}`,
         client_secret: `${twitchConfig.clientSecret}`,
         code: `${code}`,
         grant_type: 'authorization_code',
-        redirect_uri: `https://${sslConfig.hostName}/slither/oauth`
+        redirect_uri: `https://${hostConfig.hostName}/slither/auth/oauth`
     }
 
     const twitchTokenResponse = await fetch(`https://id.twitch.tv/oauth2/token`, {
@@ -200,7 +203,7 @@ export async function fetchUserAccessToken(code: string): Promise<authtypes.Twit
     return await twitchTokenResponse.json() as authtypes.TwitchAuthUserToken
 }
 
-export async function validateUserAccessToken(access_token: string): Promise<string | undefined> {
+export async function validateTwitchUAT(access_token: string): Promise<string | undefined> {
 
     return await fetch(`https://id.twitch.tv/oauth2/validate`,
                                 { method: 'GET',
@@ -254,6 +257,24 @@ export async function registerTwitchUser(twitchTokenData: authtypes.TwitchAuthUs
         return
         
     })
+
+}
+
+export function hasAuthState(state: string): boolean {
+
+    return AUTH_STATES.has(state)
+
+}
+
+export function addAuthState(state: string): void {
+
+    AUTH_STATES.add(state)
+
+}
+
+export function deleteAuthState(state: string): boolean {
+
+    return AUTH_STATES.delete(state)
 
 }
 

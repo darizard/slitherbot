@@ -1,15 +1,19 @@
 import dotenv from 'dotenv'
 
-export { appConfig, twitchConfig, sslConfig, mysqlConfig, jwtConfig, wsConfig }
+export { appConfig, hostConfig, twitchConfig, sslConfig, mysqlConfig, jwtConfig, wsConfig }
 
-const parseString = (v: string | undefined, name: string) => v ? String(v) : undefined
+const parseString = (v: string | undefined) => v ? String(v) : undefined
 const parseNumber = (v: string | undefined) => v ? Number(v) : undefined
 
-dotenv.config({ path: `/opt/slitherbot/src/config/paths` })
+dotenv.config({ path: `/opt/slitherbot/.env.insecure` })
 dotenv.config({ path: getEnvVar('SECURE_ENV_PATH', parseString) })
 
 const appConfig = {
     appPath: getEnvVar('APP_PATH', parseString)
+}
+
+const hostConfig = {
+    hostName: getEnvVar('HOST_NAME', parseString)
 }
 
 const twitchConfig = {
@@ -20,8 +24,7 @@ const twitchConfig = {
 
 const sslConfig = {
     privateKeyPath: getEnvVar('SSL_PRIVATE_KEY_PATH', parseString),
-    certificatePath: getEnvVar('SSL_CERTIFICATE_PATH', parseString),
-    hostName: getEnvVar('HOST_NAME', parseString)
+    certificatePath: getEnvVar('SSL_CERTIFICATE_PATH', parseString)
 }
 
 const mysqlConfig = {

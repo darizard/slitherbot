@@ -9,7 +9,7 @@ import { wsConfig } from '../config.js'
 import { SlitherControllerClientWebSocket } from '../classes/slitherws.js'
 
 // Express Middleware
-import { verifyMessage, parseEventJson } from '../middleware/twitchevents.js'
+import { verifyTwitchEventMessage, parseEventJson } from '../middleware/twitchevents.js'
 
 // Internal logic modules
 import esclient from '../services/eventsubclient.js'
@@ -33,7 +33,7 @@ void ws.connect(wsConfig.controllerSecret)
  * 		OR
  * 		- An existing subscription has been revoked
  **/
-eventsRouter.post('/', rawParser, verifyMessage, parseEventJson, async (req: TwitchEventRequest, res) => {
+eventsRouter.post('/', rawParser, verifyTwitchEventMessage, parseEventJson, async (req: TwitchEventRequest, res) => {
 
 	switch(req.messageType) {
 		case 'webhook_callback_verification':

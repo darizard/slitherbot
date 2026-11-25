@@ -57,25 +57,6 @@ export function isTwitchAuthTokenValidationErrorResponse(obj: unknown): obj is T
     )
 }
 
-export type TwitchAuthCodeRequest = {
-    client_id: string
-    redirect_uri: URL
-    response_type: 'code'
-    scope: string
-    state?: string
-}
-
-export function isTwitchAuthCodeRequest(obj: unknown): obj is TwitchAuthCodeRequest {
-    return (
-        typeof obj === 'object' && obj !== null
-        && 'client_id' in obj && typeof obj.client_id === 'string'
-        && 'redirect_uri' in obj && typeof obj.redirect_uri === 'string' && isValidHttpsUrl(obj.redirect_uri)
-        && 'response_type' in obj &&  obj.response_type === 'code'
-        && 'scope' in obj && typeof obj.scope === 'string'
-        && 'state' in obj && (typeof obj.state === 'string' || obj.state === undefined)
-    )
-}
-
 export type TwitchAuthUserTokenRequest = {
     client_id: string
     client_secret: string

@@ -1,5 +1,5 @@
 import { EventSubCondition, SubscriptionType, SlitherEventSubscription, EventSubTransport } from "../types/eventsubtypes.js"
-import { twitchConfig, sslConfig } from '../config.js'
+import { twitchConfig, hostConfig } from '../config.js'
 
 export class SlitherEventSub {
 
@@ -59,7 +59,7 @@ export class SlitherEventSub {
         // ['channel.hype_train.end', "A hype train concludes on your channel"],
         // ['channel.shoutout.receive', "Another broadcaster gives you a shoutout"]
 
-    static readonly #callbackURI = `https://${sslConfig.hostName}/slither/event`
+    static readonly #callbackURI = `https://${hostConfig.hostName}/slither/event`
 
     static readonly #alertSubscriptionTypes = new Set<SubscriptionType>([
         'channel.follow',
