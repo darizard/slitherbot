@@ -1,6 +1,6 @@
 import fs from 'fs'
 
-import { appConfig, sslConfig } from '../config.js'
+import { appConfig, hostConfig } from '../config.js'
 
 import { getAlert, getUserAlerts, updateAlert } from '../db/queries/eventalerts.js'
 import { getAlertsTokenForUser } from '../db/queries/slitherauth.js'
@@ -26,7 +26,7 @@ export async function getHomePageData(twitchId: string): Promise<HomePageData> {
     const alertsArr = await getUserAlerts(twitchId)
 
     // 2. Business Logic / URL Construction
-    const alertsUrl = alertsToken ? `https://${sslConfig.hostName}/slither/alerts/${alertsToken}` : ''
+    const alertsUrl = alertsToken ? `https://${hostConfig.hostName}/slither/alerts/${alertsToken}` : ''
 
     // 3. Data Transformation (Extracted logic)
     const alertsMap = transformAlertsToMap(alertsArr)

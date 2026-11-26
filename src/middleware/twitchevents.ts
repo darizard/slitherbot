@@ -10,7 +10,7 @@ const RECENT_MESSAGES = new Set<string>()  // TODO: Keep this data serialized so
                                            //       In memory in a more suitable location
 
 //*****************EVENT MESSAGE VERIFICATION ROUTINE RECOMMENDED BY TWITCH DOCS*****************/
-export const verifyMessage: RequestHandler = (req, res, next) => {
+export const verifyTwitchEventMessage: RequestHandler = (req, res, next) => {
 
     const options = {
         TWITCH_MESSAGE_ID   : 'Twitch-Eventsub-Message-Id'.toLowerCase(),

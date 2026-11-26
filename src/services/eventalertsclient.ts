@@ -3,10 +3,14 @@ import mime from 'mime'
 
 import { appConfig } from '../config.js'
 
+import { generateSecret } from './secrets.js'
+
 import { getAlert, getAllUserMediaData, initEventAlerts } from '../db/queries/eventalerts.js'
+import slitherauthsql from '../db/queries/slitherauth.js'
 import { getActiveChannels } from '../db/queries/twitchauth.js'
 
 import type { AlertMediaData } from '../types/alerttypes.js'
+
 
 export async function initialize(): Promise<void> {
 
@@ -66,7 +70,32 @@ async function removeUnusedAlertMedia(): Promise<void> {
 
 }
 
-export const getAlertMedia = async(userId: string, subId: string, mediaType: `image` | `audio`): Promise<AlertMediaData | undefined> => {
+export async function createAlertsToken(userId: string): Promise<void> {
+
+        // Generate and save new alerts token only if the user doesn't already have one
+        // TODO: Provide a way for the user to rotate their alerts token
+        if(!await slitherauthsql.getAlertsTokenForUser(userId)) {
+            const alertsToken = generateSecret()
+            let slitherIdUpsertResult = await slitherauthsql.upsertSlitherUser(userId, alertsToken)
+    
+            // in the extremely unlikely case of a collision, try again with a small delay
+            if(slitherIdUpsertResult === 1062) {
+                setTimeout(async () => {
+                    slitherIdUpsertResult = await slitherauthsql.upsertSlitherUser(userId, alertsToken)
+                }, 250)
+            }
+    
+            if(slitherIdUpsertResult === 1062) {
+                console.error(`Alerts token collision error on slither user upsert attempt during registration or login`)
+            } 
+            if(!slitherIdUpsertResult) {
+                console.error(`Error upserting new alerts token into slither auth table for user ${userId}`)
+            }
+        }
+
+}
+
+export async function getAlertMedia(userId: string, subId: string, mediaType: `image` | `audio`): Promise<AlertMediaData | undefined> {
 
     
     const fileNames = await getAlertMediaFileNames(subId, mediaType)

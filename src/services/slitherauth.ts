@@ -2,21 +2,49 @@
  * Handles SlitherBot authentication functionality, including access token retrieval and refresh.
  **********************************************************************************************************************/
 
-import { generateSecret } from './secrets.js'
-import slithersql from '../db/queries/slitherauth.js'
-import eventsubsql from '../db/queries/eventsub.js'
-import { SignJWT, jwtVerify } from 'jose'
-import { jwtConfig, wsConfig, appConfig } from '../config.js'
-import type { SlitherTokenType } from '../types/authtypes.js'
 import type { Response } from 'express'
-import { SlitherEventSub } from '../classes/eventsub.js'
-import { subToEvent } from '../services/eventsubclient.js'
 import fs from 'fs'
+import { SignJWT, jwtVerify } from 'jose'
 
-const SECRETS = new Map<string, Uint8Array>()
-SECRETS.set('refresh', new TextEncoder().encode(jwtConfig.refreshSecret))
-SECRETS.set('access', new TextEncoder().encode(jwtConfig.accessSecret))
-SECRETS.set('alerts', new TextEncoder().encode(wsConfig.alertsSecret))
+import { appConfig } from '../config.js'
+
+import { createAlertsToken } from './eventalertsclient.js'
+import { subToEvent } from './eventsubclient.js'
+import { getSecret } from './secrets.js'
+import { fetchTwitchUAT, registerTwitchUser, validateTwitchUAT } from './twitchauth.js'
+
+import { SlitherEventSub } from '../classes/eventsub.js'
+
+import type { SlitherTokenType } from '../types/authtypes.js'
+
+import slitherauthsql from '../db/queries/slitherauth.js'
+import eventsubsql from '../db/queries/eventsub.js'
+
+export async function setupNewSlitherUser(twitchAuthCode: string): Promise<string | undefined> {
+
+    // We have received an Authorization Code from Twitch that we can use to obtain a User Access Token for a user wanting to use
+    // SlitherBot. We can send our response to Twitch. POST the auth code to https://id.twitch.tv/oauth2/token with query params:
+    // { client_id, client_secret, code, grant_type, redirect_uri }
+    const twitchTokenData = await fetchTwitchUAT(twitchAuthCode)
+    const obtainmentTimestamp = Date.now()
+
+    // Immediately validate the access token to get the userID from Twitch
+    const twitchId = await validateTwitchUAT(twitchTokenData.access_token)
+    if(!twitchId) return undefined
+    
+    // Store Twitch access tokens in the database. This function will print a log message to the console in case of a DB error.
+    // Also if we already have an old user access token, be a good client and send a revocation request to Twitch
+    // We have already received and validated the access tokens as part of the OAuth flow so in the event of an error, keep going.
+    await registerTwitchUser(twitchTokenData, twitchId, obtainmentTimestamp)
+
+    // Now register the user with Slither. If the user's twitch ID is already mapped to an alerts token, treat this as a simple login
+    // and move on to issuing cookies
+    if(!await registerSlitherUser(twitchId)) return undefined
+
+	// We have now sucessfully logged in the user. If we set the require_login flag in the DB, unset it now.
+	await slitherauthsql.setLoginRequiredValue(twitchId, false)
+    
+}
 
 // Issue an access token based on the provided SlitherBot refresh token
 export async function refreshSlitherAccessToken(refreshToken: string): Promise<{ accessToken: string | undefined, userId: string } | undefined> {
@@ -27,6 +55,7 @@ export async function refreshSlitherAccessToken(refreshToken: string): Promise<{
     const accessToken = await signSlitherToken(userId, 'access')
 
     return { accessToken: accessToken, userId: userId }
+    
 }
 
 // Called as a follow-up to a completed twitch User Access Token OAuth flow. Need to add the user
@@ -34,39 +63,15 @@ export async function refreshSlitherAccessToken(refreshToken: string): Promise<{
 // signed with the secret from jwtConfig
 export async function registerSlitherUser(userId: string): Promise<void | null> {
 
-    // Alerts token should remain the same between authorization cycles, e.g. if the user disconnects Slither
-    // on the Twitch and and then reconnects later. At this stage we are only worrying about inserting an alerts
-    // token, all other data for the SlitherIDs table is handled outside of this method.
-    // TODO: Provide a way for the user to rotate their alerts token
-    if(!await slithersql.getAlertsTokenForUser(userId))
-    {
-        const alertsToken = generateSecret()
-        let slitherIdUpsertResult = await slithersql.upsertSlitherUser(userId, alertsToken)
-
-        // in the extremely unlikely case of a collision, try again with a small delay
-        if(slitherIdUpsertResult === 1062) {
-            setTimeout(async () => {
-                slitherIdUpsertResult = await slithersql.upsertSlitherUser(userId, alertsToken)
-            }, 250)
-        }
-
-        if(slitherIdUpsertResult === 1062) {
-            console.error(`Alerts token collision error on slither user upsert attempt during registration or login`)
-            return null
-        } 
-        if(!slitherIdUpsertResult) {
-            console.error(`Error upserting new alerts token into slither auth table for user ${userId}`)
-            return null
-        }
-    }
+    await createAlertsToken(userId)
 
     // Now that the user has been logged in, subscribe to all nonexisting required subscriptions for that user.
-    const existingSubTypes: string[] = []
+    const existingSubTypes: Set<string> = new Set<string>()
     const subsForUser = await eventsubsql.getSubscriptionsForUsers(userId)
-    subsForUser.forEach((sub) => { existingSubTypes.push(sub.type) })
+    subsForUser.forEach((sub) => { existingSubTypes.add(sub.type) })
 
     SlitherEventSub.getRequiredUserSubscriptions(userId).forEach(async (requiredSub) => {
-        if(!existingSubTypes.includes(requiredSub.type) && !await subToEvent(requiredSub.type, requiredSub.channel_id)) {
+        if(!existingSubTypes.has(requiredSub.type) && !await subToEvent(requiredSub.type, requiredSub.channel_id)) {
             console.error(`Error upserting newly registered user's required EventSub user event types for userId ${userId}`)
         }
     })
@@ -77,7 +82,7 @@ export async function registerSlitherUser(userId: string): Promise<void | null> 
 
 export async function signSlitherToken(userId: string, tokenType: SlitherTokenType): Promise<string | undefined> {
 
-    const secret = SECRETS.get(tokenType)
+    const secret = getSecret(tokenType)
     if(!secret) {
         console.error(`Invalid tokenType for signing: ${tokenType}`)
         return
@@ -107,7 +112,7 @@ export async function signSlitherToken(userId: string, tokenType: SlitherTokenTy
 
 export async function verifySlitherToken(token: string, tokenType: SlitherTokenType): Promise<string | undefined> {
 
-    const secret = SECRETS.get(tokenType)
+    const secret = getSecret(tokenType)
     if(!secret) {
         console.error(`Invalid tokenType for verification: ${tokenType}`)
         return

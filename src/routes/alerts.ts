@@ -1,7 +1,7 @@
 import express from 'express'
 
 // .env configuration imports
-import { sslConfig } from '../config.js'
+import { hostConfig } from '../config.js'
 
 // Types
 import type { SlitherAuthenticatedRequest } from '../types/authtypes.js'
@@ -21,7 +21,7 @@ alertsRouter.get('/:alertsToken', alertsTokenToTwitchId, async (req: SlitherAuth
 
     const alertsJWT = await signSlitherToken(req.twitchId as string, 'alerts')
 
-    res.render("slither/alerts", { hostName: sslConfig.hostName,
+    res.render("slither/alerts", { hostName: hostConfig.hostName,
                                     connectionToken: alertsJWT })
 
 })
